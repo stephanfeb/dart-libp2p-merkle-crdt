@@ -24,6 +24,7 @@ import 'package:dart_libp2p/p2p/transport/udx_transport.dart';
 import 'package:dart_udx/udx.dart';
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_transport;
 import 'package:dart_libp2p/core/network/rcmgr.dart'; // Interface - Corrected Path
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT; // Added for IpfsDHT
 import 'package:dart_libp2p/p2p/network/swarm/swarm.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart';
 import 'package:dart_libp2p/p2p/host/peerstore/pstoremem.dart';
@@ -62,6 +63,7 @@ typedef Libp2pNode = ({
   core_peer_id_lib.PeerId peerId,
   List<MultiAddr> listenAddrs,
   KeyPair keyPair
+  // IpfsDHT? dht field removed
 });
 
 Future<Libp2pNode> createLibp2pNode({
@@ -185,10 +187,15 @@ Future<Libp2pNode> createLibp2pNode({
   }
 
 
+  // The try block was removed as it was incomplete and the logic for DHT retrieval
+  // is being handled differently: BasicHost manages its own DHT internally,
+  // and tests requiring explicit DHT instances will create them.
+  
   return (
     host: host as BasicHost,
     peerId: peerId,
     listenAddrs: actualListenAddrs,
     keyPair: kp
+    // dht field is not part of this record as BasicHost doesn't publicly expose its internal DHT.
   );
 }

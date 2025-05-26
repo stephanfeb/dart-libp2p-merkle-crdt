@@ -7,6 +7,7 @@ import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
 import 'package:dart_libp2p/core/multiaddr.dart' show MultiAddr; // Corrected import
 import 'package:dart_libp2p/core/peerstore.dart' show AddressTTL;
+import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore, ProviderStore; // Added for MemoryProviderStore
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
@@ -14,7 +15,8 @@ import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_m
 import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart';
 import 'package:merkledag/merkledag.dart' show GSet, CRDTPayload, MerkleNode; // For GSet and CRDTPayload
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart' show PubSub, GossipSubRouter, PubSubMessage;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT;
+// Using a more specific import that is known to export DHTOptions and DHTMode from dht_discovery_test.dart
+import 'package:dart_libp2p_kat_dht/src/dht/dht.dart' show IpfsDHT, DHTOptions, DHTMode; 
 
 import 'package:dart_udx/udx.dart';
 import 'package:logging/logging.dart';
@@ -48,10 +50,12 @@ class _NodeWithMerkleCRDT {
   late Host host;
   late PeerId peerId;
   late UDX _udxInstance;
+  IpfsDHT? dht; // Store the DHT instance
 
   _NodeWithMerkleCRDT(); // Private constructor
 
-  static Future<_NodeWithMerkleCRDT> create({String? userAgentPrefix, IpfsDHT? dht}) async {
+  // Removed IpfsDHT? dht from create signature, as it's sourced from nodeDetails
+  static Future<_NodeWithMerkleCRDT> create({String? userAgentPrefix}) async {
     final helper = _NodeWithMerkleCRDT();
 
     helper._udxInstance = UDX();
@@ -67,9 +71,21 @@ class _NodeWithMerkleCRDT {
       userAgentPrefix: userAgentPrefix ?? 'merkle-crdt-test-node',
       // dht parameter removed from createLibp2pNode call, as it's not typically passed this way.
       // The dht instance is created in real_net_stack.dart or passed to P2PStreamDagFetcher directly.
+      // real_net_stack.createLibp2pNode enables DHT by default.
     );
     helper.host = helper.nodeDetails.host;
     helper.peerId = helper.nodeDetails.peerId;
+    // helper.dht = helper.nodeDetails.dht; // Removed, nodeDetails no longer has dht
+
+    // Explicitly create DHT for this node helper
+    final providerStore = MemoryProviderStore();
+    helper.dht = IpfsDHT(
+      host: helper.host,
+      providerStore: providerStore, // Use the created provider store
+      options: const DHTOptions(mode: DHTMode.server), // Or client, or auto. Server is good for tests.
+    );
+    // The DHT needs to be started. This could be done here or in startPubSubAndManager.
+    // Let's add it to startPubSubAndManager.
 
     // Setup PubSub with GossipSubRouter
     final router = GossipSubRouter();
@@ -82,7 +98,7 @@ class _NodeWithMerkleCRDT {
       helper.blockStore,
       dagSyncProtocolId,
       gsetPayloadFactory,
-      dht: dht, // Pass DHT to DagFetcher if provided
+      dht: helper.dht, // Pass the DHT instance obtained from nodeDetails
     );
     helper.announcer = GossipSubAnnouncer(
       helper.host,
@@ -100,6 +116,10 @@ class _NodeWithMerkleCRDT {
 
   Future<void> startPubSubAndManager() async {
     await pubsub.start();
+    if (dht != null) {
+      await dht!.start(); // Start the DHT
+      _logger.info('Peer ${peerId.toBase58().substring(0, 10)} DHT started.');
+    }
     // MerkleCrdtGossipManager might not have an explicit start(), 
     // it becomes active when its components (especially announcer via pubsub) are active.
     // If it had manager.start(), it would be called here.
@@ -112,6 +132,10 @@ class _NodeWithMerkleCRDT {
       await manager.close(); // Assuming manager has a close method
     } catch (e) {
       _logger.warning('Error closing manager for ${peerId.toBase58().substring(0,10)}: $e. May not have a close method or already closed.');
+    }
+    if (dht != null) {
+      await dht!.close(); // Close the DHT
+      _logger.info('Peer ${peerId.toBase58().substring(0, 10)} DHT closed.');
     }
     await pubsub.stop();
     await host.close();
