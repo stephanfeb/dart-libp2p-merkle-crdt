@@ -81,9 +81,28 @@ class GossipSubAnnouncer implements Broadcaster {
       }
     }
 
-    // Explicitly cast the stream to ensure the type is correctly understood by asyncExpand
-    final Stream<PubSubMessage> typedStream = subscription.stream as Stream<PubSubMessage>;
-    return typedStream.asyncExpand<String>(_processMessage);
+    // Safely transform the dynamic stream to Stream<PubSubMessage>
+    // and then process valid messages.
+    return subscription.stream.transform(
+      StreamTransformer<dynamic, PubSubMessage>.fromHandlers(
+        handleData: (data, sink) {
+          if (data is PubSubMessage) {
+            sink.add(data);
+          } else {
+            _logger.warning('GossipSubAnnouncer: Received unexpected data type on PubSub stream for topic $_crdtInstanceTopic: ${data.runtimeType}. Expected PubSubMessage.');
+            // Optionally, if strict error handling is needed:
+            // sink.addError(TypeError()); 
+          }
+        },
+        handleError: (error, stackTrace, sink) {
+          _logger.severe('GossipSubAnnouncer: Error in PubSub stream for topic $_crdtInstanceTopic: $error', error, stackTrace);
+          sink.addError(error, stackTrace);
+        },
+        handleDone: (sink) {
+          sink.close();
+        },
+      ),
+    ).asyncExpand<String>(_processMessage);
   }
 
   Future<void> close() async {
