@@ -133,43 +133,72 @@ void main() {
       test('should ignore self-originated messages', () async {
         final stream = announcer.subscribe();
         
-        // Message whose original publisher is self (_host.id)
+        // Prepare self-originated message
         final selfOriginatedPayload = {'cid': 'QmSelfCid', 'senderPeerId': actualHostPeerId.toBase58()};
         final selfPayloadBytes = utf8.encode(jsonEncode(selfOriginatedPayload));
         final rpcMsgSelf = rpc.Message()
-          ..from = actualHostPeerId.toBytes() // Original publisher is self
+          ..from = actualHostPeerId.toBytes()
           ..data = selfPayloadBytes
           ..seqno = Uint8List(0)
           ..topic = expectedTopic;
-        final pubSubMessageSelf = PubSubMessage( // Renamed to avoid conflict
+        final pubSubMessageSelf = PubSubMessage(
           rpcMessage: rpcMsgSelf,
-          receivedFrom: actualHostPeerId, // Simulating it was received from self (loopback)
+          receivedFrom: actualHostPeerId,
         );
 
-        pubsubStreamController.add(pubSubMessageSelf);
-        
-        // Add another valid message (not self-originated)
-        final validPayloadOther = {'cid': testCid, 'senderPeerId': actualSenderPeerId.toBase58()}; // Renamed
-        final validPayloadBytesOther = utf8.encode(jsonEncode(validPayloadOther)); // Renamed
+        // Prepare valid (non-self-originated) message
+        final validPayloadOther = {'cid': testCid, 'senderPeerId': actualSenderPeerId.toBase58()};
+        final validPayloadBytesOther = utf8.encode(jsonEncode(validPayloadOther));
         final rpcMsgValid = rpc.Message()
-          ..from = actualSenderPeerId.toBytes() // Original publisher is other peer
+          ..from = actualSenderPeerId.toBytes()
           ..data = validPayloadBytesOther
           ..seqno = Uint8List(0)
           ..topic = expectedTopic;
         final validPubSubMessage = PubSubMessage(
           rpcMessage: rpcMsgValid,
-          receivedFrom: actualSenderPeerId, // Use actual PeerId
+          receivedFrom: actualSenderPeerId,
         );
+
+        final completer = Completer<List<String>>();
+        final collectedItems = <String>[];
+        late StreamSubscription streamSub;
+
+        streamSub = stream.listen(
+          (item) {
+            collectedItems.add(item);
+            // We expect only one item after filtering. If we get it, complete.
+            if (item == testCid && !completer.isCompleted) {
+              completer.complete(List<String>.from(collectedItems)); // Pass a copy
+              streamSub.cancel(); // Stop listening once we have what we need
+            }
+          },
+          onDone: () {
+            if (!completer.isCompleted) completer.complete(List<String>.from(collectedItems));
+          },
+          onError: (e) {
+            if (!completer.isCompleted) completer.completeError(e);
+          }
+        );
+
+        // Add messages with delay
+        Future.delayed(Duration.zero, () => pubsubStreamController.add(pubSubMessageSelf));
         Future.delayed(Duration.zero, () => pubsubStreamController.add(validPubSubMessage));
+
+        // Wait for the completer or timeout
+        List<String> result = [];
+        try {
+          result = await completer.future.timeout(const Duration(seconds: 5), onTimeout: () {
+            if (!completer.isCompleted) streamSub.cancel(); // Ensure subscription is cancelled on timeout
+            return []; // Return empty list on timeout
+          });
+        } catch (e) {
+          // Error from stream
+          if (!completer.isCompleted && !streamSub.isPaused) await streamSub.cancel(); // Check if paused before cancelling
+        }
         
-        // We expect only the testCid from the non-self-originated message
-        await expectLater(stream, emits(testCid));
-        // To be more robust, ensure no other events before the expected one,
-        // or that the 'QmSelfCid' is not emitted. This can be tricky with async emits.
-        // One way is to collect events over a short period.
-        final collected = await stream.take(1).toList(); // Take the first emitted item
-        expect(collected, equals([testCid]));
-        expect(collected, isNot(contains('QmSelfCid')));
+        expect(result, equals([testCid]));
+        // The check for not containing 'QmSelfCid' is implicit if result is exactly [testCid]
+        // and 'QmSelfCid' is different from testCid.
       });
 
       test('should log warning and not yield for malformed JSON message', () async {
