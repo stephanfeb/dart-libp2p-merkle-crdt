@@ -1,101 +1,70 @@
 // lib/src/gossip_manager/merkle_crdt_gossip_manager.dart
 import 'dart:async';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
-import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, MerkleNode; // Assuming MerkleNode might be needed for type hints or internal logic
+// CID is not directly used here anymore after removing receiveHead, but good for context.
+// import 'package:dart_cid/dart_cid.dart' show CID; 
+import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:logging/logging.dart';
 
 import 'p2p_stream_dag_fetcher.dart';
 import 'gossipsub_announcer.dart';
-// BlockStore might not be directly used by the manager, but by the fetcher.
 
 final _logger = Logger('MerkleCrdtGossipManager');
 
 class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   final MerkleCRDT<V, P> _merkleCrdt;
-  final GossipSubAnnouncer _announcer;
-  // The P2PStreamDagFetcher is used internally by MerkleCRDT via DAGSyncer interface
-  // final P2PStreamDagFetcher<P, V> _fetcher; // Not directly held if only passed to MerkleCRDT
+  // _announcer is passed to MerkleCRDT, which uses it internally.
+  // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
 
-  StreamSubscription<String>? _headSubscription;
-  final _stateController = StreamController<V?>.broadcast();
+  // No longer needed as MerkleCRDT handles its broadcaster subscription internally.
+  // StreamSubscription<String>? _headSubscription; 
+  
+  final StreamController<V?> _stateController = StreamController<V?>.broadcast();
   V? _currentState;
 
-  /// Stream of CRDT state updates. Emits the new state whenever it changes.
+  /// Stream of CRDT state updates (logical value V). Emits the new state whenever it changes.
   Stream<V?> get onStateChanged => _stateController.stream;
 
-  /// Gets the current cached state of the CRDT.
+  /// Gets the current cached logical value of the CRDT.
   V? get currentState => _currentState;
 
   MerkleCrdtGossipManager({
     required P2PStreamDagFetcher<P, V> dagFetcher,
     required GossipSubAnnouncer announcer,
-    // Required for MerkleCRDT, assuming it needs a way to create empty payloads or similar
-    // Or perhaps the MerkleCRDT itself is pre-configured with this.
-    // For now, let's assume MerkleCRDT handles its internal payload logic.
-  }) : _announcer = announcer,
-       _merkleCrdt = MerkleCRDT<V, P>(
+  }) : _merkleCrdt = MerkleCRDT<V, P>(
           dagSyncer: dagFetcher,
-          broadcaster: announcer,
+          broadcaster: announcer, // MerkleCRDT will use this to subscribe and broadcast
         ) {
-    _listenForRemoteHeads();
-    _updateCurrentState(); // Initialize with current state
+    // Initial state update
+    _updateCurrentStateAndNotify();
+
+    // MerkleCRDT is expected to call broadcaster.subscribe() itself.
+    // If we want to be notified of MerkleCRDT state changes beyond our own actions,
+    // MerkleCRDT would need to provide its own state update stream, or we poll/check after known events.
+    // For now, we update state after our actions (applyLocalUpdate)
+    // and assume that remote changes handled by MerkleCRDT will eventually lead to
+    // a different state if we call getState().
+    // A more reactive system would involve MerkleCRDT itself emitting events when its state changes due to internal processing of broadcasts.
+    // For simplicity, this manager will update its state primarily after local actions,
+    // and its getState() will always fetch the latest. The onStateChanged stream will reflect these.
   }
 
-  void _listenForRemoteHeads() {
-    _headSubscription = _announcer.subscribe().listen(
-      (cidString) async {
-        _logger.info('Received new remote head CID: $cidString');
-        try {
-          final cid = CID.fromString(cidString);
-          // Assuming MerkleCRDT has a method to incorporate a remote head.
-          // This method should trigger the DAGSyncer if nodes are missing.
-          // Common names: applyHead, join, mergeHead, receiveHead etc.
-          // Let's assume a method like `applyRemoteHead` or `joinDag`.
-          // The original MerkleCRDT paper implies that new CIDs are simply processed,
-          // and the existing `add` or a similar mechanism for merging DAGs would be used.
-          // For now, let's assume there's a specific method, or that `MerkleCRDT`
-          // handles this transparently when `Broadcaster` feeds it CIDs.
-          // The `merkledag` `MerkleCRDT` constructor takes the broadcaster,
-          // implying it might internally subscribe and process.
-          // If MerkleCRDT handles subscription internally via its broadcaster,
-          // this explicit subscription here might be redundant or conflict.
-          //
-          // Re-evaluating: The MerkleCRDT takes the broadcaster. It's likely
-          // MerkleCRDT itself calls broadcaster.subscribe() and handles incoming CIDs.
-          // If so, this manager class might not need to subscribe explicitly.
-          // However, if it does, it needs a method on _merkleCrdt to pass the CID.
-          // Let's assume for now MerkleCRDT does NOT auto-subscribe and we need to tell it.
-          // A common pattern is `await _merkleCrdt.join(cid);` or `await _merkleCrdt.syncHead(cid);`
-          
-          // The `merkledag` README shows `MerkleCRDT.add(payload)`. It doesn't show
-          // how raw CIDs from peers are processed.
-          // The `MerkleClock` component of MerkleCRDTs is responsible for tracking heads.
-          // Let's assume a hypothetical `_merkleCrdt.receiveHead(cid)`
-          await _merkleCrdt.receiveHead(cid); // HYPOTHETICAL METHOD
-          _logger.fine('Processed remote head CID: $cidString');
-          await _updateCurrentState();
-        } catch (e, s) {
-          _logger.severe('Error processing remote head CID $cidString: $e', e, s);
-        }
-      },
-      onError: (e, s) {
-        _logger.severe('Error on remote head subscription stream: $e', e, s);
-        // Consider re-subscription logic here if appropriate.
-      },
-      onDone: () {
-        _logger.info('Remote head subscription stream closed.');
-      }
-    );
-  }
-
-  Future<void> _updateCurrentState() async {
+  Future<void> _updateCurrentStateAndNotify() async {
+    _logger.fine('Updating and notifying current state...');
     try {
-      _currentState = await _merkleCrdt.getState();
-      _stateController.add(_currentState);
+      P? payloadState = await _merkleCrdt.getState(); // Returns P?
+      V? logicalValue = payloadState?.value;       // Convert P? to V?
+
+      if (_currentState != logicalValue) { // Only update and notify if different
+        _currentState = logicalValue;
+        _stateController.add(_currentState);
+        _logger.fine('CRDT state updated. New logical value: $_currentState');
+      } else {
+        _logger.finer('CRDT state unchanged. Logical value: $_currentState');
+      }
     } catch (e, s) {
-      _logger.severe('Error updating current state: $e', e, s);
-      // Do not add to stream controller on error, keep last known state.
+      _logger.severe('Error getting or updating CRDT state: $e', e, s);
+      // Do not change _currentState or add to _stateController on error
     }
   }
 
@@ -105,70 +74,54 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.info('Applying local update...');
     try {
       await _merkleCrdt.add(payload);
-      _logger.fine('Local update applied. MerkleCRDT will broadcast new head.');
-      // MerkleCRDT.add should internally use the Broadcaster to announce the new head.
-      // It should also use DAGSyncer to store the new nodes.
-      await _updateCurrentState();
+      _logger.fine('Local update applied. MerkleCRDT will broadcast new head via its broadcaster.');
+      // After a local update, the state will have changed.
+      await _updateCurrentStateAndNotify();
     } catch (e, s) {
       _logger.severe('Error applying local update: $e', e, s);
       rethrow; // Rethrow to let the caller know
     }
   }
 
-  /// Retrieves the current merged state of the CRDT.
+  /// Retrieves the current merged logical value of the CRDT.
+  /// This fetches the latest state from the underlying MerkleCRDT.
   Future<V?> getState() async {
-    _logger.fine('getState called.');
-    // Ensure state is up-to-date, though onStateChanged provides real-time updates.
-    // This call also serves to fetch initial state if not yet available.
-    await _updateCurrentState(); 
-    return _currentState;
+    _logger.fine('getState() called, fetching latest from MerkleCRDT.');
+    try {
+      P? payloadState = await _merkleCrdt.getState(); // Returns P?
+      V? logicalValue = payloadState?.value;       // Convert P? to V?
+      // Update local cache and notify if it changed, even if called directly.
+      if (_currentState != logicalValue) {
+        _currentState = logicalValue;
+        _stateController.add(_currentState);
+      }
+      return logicalValue;
+    } catch (e, s) {
+      _logger.severe('Error during getState(): $e', e, s);
+      // Return the last known good state in case of error, or rethrow/return null
+      // For now, return the cached state which might be stale but better than erroring.
+      _logger.warning('Returning cached state due to error in getState: $_currentState');
+      return _currentState; 
+    }
+  }
+  
+  /// Call this method periodically or after events that might indicate remote changes
+  /// if MerkleCRDT doesn't provide its own state update stream.
+  Future<void> refreshState() async {
+    _logger.info('Refreshing CRDT state...');
+    await _updateCurrentStateAndNotify();
   }
 
   Future<void> close() async {
     _logger.info('Closing MerkleCrdtGossipManager...');
-    await _headSubscription?.cancel();
+    // _headSubscription was removed.
     await _stateController.close();
-    // The announcer and fetcher might be shared or have their own lifecycle managed elsewhere.
-    // If this manager "owns" them, it should close them.
-    // await _announcer.close(); // Assuming GossipSubAnnouncer has a close method
-    // await _fetcher.close(); // Assuming P2PStreamDagFetcher has a close method
+    // The announcer and fetcher lifecycles are assumed to be managed externally
+    // or tied to the lifecycle of the Host/PubSub instances they use.
+    // If this manager "owned" them, it would call:
+    // await _announcer.close(); 
+    // (P2PStreamDagFetcher doesn't have an explicit close for its stream handler management yet,
+    // but BlockStore might).
     _logger.info('MerkleCrdtGossipManager closed.');
-  }
-}
-
-// Example of a hypothetical method that might exist on MerkleCRDT
-extension MerkleCRDTExtension<V, P extends CRDTPayload<V>> on MerkleCRDT<V,P> {
-  Future<void> receiveHead(CID remoteHeadCid) async {
-    // This is a placeholder for how a MerkleCRDT might incorporate a raw CID.
-    // The actual mechanism depends on the `merkledag` library's design.
-    // It might involve:
-    // 1. Fetching the MerkleNode for this CID via DAGSyncer.
-    // 2. Merging its payload (if it's a payload node) or its clock with the local clock.
-    // This could be complex. A simpler MerkleCRDT might expect to receive full
-    // payload objects that it then `add`s, and relies on the DAGSyncer to only
-    // fetch deltas.
-    // Or, it might have a method like `joinDag(remoteHeadCid)` which fetches the
-    // remote DAG from that head and merges it.
-    // The `MerkleClock.merge(otherClock)` is key.
-    // For now, this is a conceptual placeholder.
-    // The `merkledag` library's `MerkleCRDT` might handle this internally
-    // if its `Broadcaster`'s `subscribe` stream is consumed by it.
-    _logger.warning("MerkleCRDT.receiveHead(CID) is a hypothetical method used by MerkleCrdtGossipManager. Actual implementation in 'merkledag' package may differ.");
-    // A more realistic approach if MerkleCRDT doesn't have such a method:
-    // The manager would get the CID, use the DAGSyncer to fetch the MerkleNode<P>,
-    // then if the node.payload is of type P (the CRDT payload), call this.add(node.payload).
-    // This assumes heads are CRDT payload states.
-    // If heads are just clock CIDs, then it's more about merging clocks.
-    
-    // If the MerkleCRDT is designed to listen to its broadcaster, then this
-    // explicit call might not be needed. The manager would just ensure the
-    // broadcaster is correctly wired.
-    
-    // Given the MerkleCRDT constructor takes the broadcaster, it's highly plausible
-    // it subscribes and processes CIDs internally. If so, _listenForRemoteHeads
-    // in the manager is redundant.
-    // For this iteration, I will keep _listenForRemoteHeads and this hypothetical method
-    // to make the data flow explicit. This can be refined once the exact MerkleCRDT API is known.
-    throw UnimplementedError("Hypothetical MerkleCRDT.receiveHead(CID) called. Actual implementation needed based on 'merkledag' API.");
   }
 }
