@@ -18,7 +18,7 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   // Logger for this class - will be instance-specific
   final Logger _logger;
 
-  final MerkleCRDT<V, P> _merkleCrdt;
+  late final MerkleCRDT<V, P> _merkleCrdt; // Changed to late final
   final P2PStreamDagFetcher<P, V> _dagFetcher; // Store the dagFetcher
   // _announcer is passed to MerkleCRDT, which uses it internally.
   // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
@@ -53,17 +53,17 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     // required P Function(Uint8List) payloadFactory,
     // required Uint8List Function(P) payloadSerializer,
 
-  }) : _logger = Logger(loggerName ?? 'MerkleCrdtGossipManager'), // Initialize instance logger
-        _merkleCrdt = MerkleCRDT<V, P>( // This is the original instantiation
-          // blockStore: blockStore, // Assuming these are properties of MerkleCRDT or set via methods
-          // initialPayload: initialPayload,
-          // fromBytes: payloadFactory,
-          // toBytes: payloadSerializer,
-          dagSyncer: dagFetcher, // MerkleCRDT uses this to fetch missing DAG nodes
-          broadcaster: announcer, // MerkleCRDT uses this to subscribe and broadcast head CIDs
-        ),
-        _dagFetcher = dagFetcher { // Initialize the _dagFetcher field
-    _logger.info('Instance created. Effective logger name: ${_logger.name}. ShortPeerId: $_shortPeerId'); // New diagnostic log
+  }) : _logger = Logger(loggerName ?? 'MerkleCrdtGossipManager'),
+        _dagFetcher = dagFetcher { // Initialize _logger and _dagFetcher in initializer list
+
+    // Initialize _merkleCrdt in the constructor body
+    _merkleCrdt = MerkleCRDT<V, P>(
+      dagSyncer: _dagFetcher, // 'this._dagFetcher' is now fully available
+      broadcaster: announcer,
+      onRemoteUpdateProcessed: _onMerkleCRDTRemoteUpdate, // 'this._onMerkleCRDTRemoteUpdate' is now safe
+    );
+
+    _logger.info('Instance created. Effective logger name: ${_logger.name}. ShortPeerId: $_shortPeerId'); 
     _logger.info('Node $_shortPeerId: Constructor logic continues. dagFetcher: ${dagFetcher.runtimeType}, announcer: ${announcer.runtimeType}');
     // Initial state update
     _updateCurrentStateAndNotify(); 
@@ -78,6 +78,13 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     // A more reactive system would involve MerkleCRDT itself emitting events when its state changes due to internal processing of broadcasts.
     // For simplicity, this manager will update its state primarily after local actions,
     // and its getState() will always fetch the latest. The onStateChanged stream will reflect these.
+  }
+
+  /// Handles the callback from MerkleCRDT when a remote update is processed.
+  void _onMerkleCRDTRemoteUpdate() {
+    // This method is called on a fully constructed instance.
+    _logger.info('Node $_shortPeerId: MerkleCRDT reported remote update. Refreshing manager state.');
+    _updateCurrentStateAndNotify();
   }
 
   Future<void> _updateCurrentStateAndNotify() async {

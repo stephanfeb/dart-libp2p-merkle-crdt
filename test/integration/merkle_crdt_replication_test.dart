@@ -396,7 +396,7 @@ void main() {
       final uniqueValue = 'test_value_${DateTime.now().millisecondsSinceEpoch}';
       final updateCompleter = Completer<Set<String>?>();
 
-      final subscriptionB = managerB.onStateChanged.listen((Set<String>? newState) {
+      final subscriptionB = managerB.onStateChanged.listen((newState) {
         _logger.info('Node B (${peerIdB.toBase58().substring(0,6)}) received state update: $newState');
         if (newState != null && newState.contains(uniqueValue)) {
           if (!updateCompleter.isCompleted) {
