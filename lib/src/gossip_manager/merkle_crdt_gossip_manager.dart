@@ -1,11 +1,12 @@
 // lib/src/gossip_manager/merkle_crdt_gossip_manager.dart
 import 'dart:async';
 
-// CID is not directly used here anymore after removing receiveHead, but good for context.
-// import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dart_cid/dart_cid.dart' show CID; // Import CID
 import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:logging/logging.dart';
 
+// Correct import for BlockStore
+import 'block_store.dart'; 
 import 'p2p_stream_dag_fetcher.dart';
 import 'gossipsub_announcer.dart';
 
@@ -21,6 +22,7 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 
 
   final MerkleCRDT<V, P> _merkleCrdt;
+  final P2PStreamDagFetcher<P, V> _dagFetcher; // Store the dagFetcher
   // _announcer is passed to MerkleCRDT, which uses it internally.
   // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
 
@@ -45,10 +47,22 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   MerkleCrdtGossipManager({
     required P2PStreamDagFetcher<P, V> dagFetcher,
     required GossipSubAnnouncer announcer,
-  }) : _merkleCrdt = MerkleCRDT<V, P>(
-          dagSyncer: dagFetcher,
-          broadcaster: announcer, // MerkleCRDT will use this to subscribe and broadcast
-        ) {
+    // Parameters for MerkleCRDT constructor if it's different from default
+    // For example, if it needs BlockStore, initialPayload, factories directly:
+    // required BlockStore<P,V> blockStore,
+    // required P initialPayload,
+    // required P Function(Uint8List) payloadFactory,
+    // required Uint8List Function(P) payloadSerializer,
+
+  }) : _merkleCrdt = MerkleCRDT<V, P>( // This is the original instantiation
+          // blockStore: blockStore, // Assuming these are properties of MerkleCRDT or set via methods
+          // initialPayload: initialPayload,
+          // fromBytes: payloadFactory,
+          // toBytes: payloadSerializer,
+          dagSyncer: dagFetcher, // MerkleCRDT uses this to fetch missing DAG nodes
+          broadcaster: announcer, // MerkleCRDT uses this to subscribe and broadcast head CIDs
+        ),
+        _dagFetcher = dagFetcher { // Initialize the _dagFetcher field
     _logger.info('MerkleCrdtGossipManager: Constructor started. dagFetcher: ${dagFetcher.runtimeType}, announcer: ${announcer.runtimeType}');
     // Initial state update
     _updateCurrentStateAndNotify(); 
@@ -105,8 +119,23 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   Future<void> applyLocalUpdate(P payload) async {
     _logger.info('applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
     try {
-      await _merkleCrdt.add(payload);
-      _logger.fine('applyLocalUpdate: Local update applied to MerkleCRDT. MerkleCRDT will broadcast new head.');
+      final CID newHeadCid = await _merkleCrdt.add(payload);
+      _logger.fine('applyLocalUpdate: Local update applied to MerkleCRDT. New head CID: $newHeadCid. MerkleCRDT will broadcast new head.');
+
+      // Advertise the new head CID on the DHT
+      if (_dagFetcher.dht != null) {
+        _logger.info('applyLocalUpdate: Attempting to provide new head CID $newHeadCid to local DHT.');
+        try {
+          await _dagFetcher.dht!.provide(newHeadCid, true); // Announce to DHT
+          _logger.info('applyLocalUpdate: Successfully provided new head CID $newHeadCid to local DHT.');
+        } catch (e, s) {
+          _logger.severe('applyLocalUpdate: Error providing new head CID $newHeadCid to DHT: $e', e, s);
+          // Optionally rethrow or handle; for now, log and continue
+        }
+      } else {
+        _logger.warning('applyLocalUpdate: _dagFetcher.dht is null, cannot provide new head CID $newHeadCid to DHT.');
+      }
+
       await _updateCurrentStateAndNotify(); // Refresh and notify after local change
       _logger.info('applyLocalUpdate: Successfully applied local update. Current state: $_currentState');
     } catch (e, s) {

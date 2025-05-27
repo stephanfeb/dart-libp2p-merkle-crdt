@@ -93,7 +93,13 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
   final String _protocolId;
   final P Function(Uint8List payloadBytes) _payloadFactory;
   // cidFunction removed from constructor as it's not used in the simplified _deserializeMerkleNode
-  // final CID Function(Uint8List data, P payload) _cidFunction; 
+  // final CID Function(Uint8List data, P payload) _cidFunction;
+
+  /// Public getter for the DHT instance, if available.
+  IpfsDHT? get dht => _dht;
+
+  /// Public getter for the payload factory.
+  P Function(Uint8List payloadBytes) get payloadFactory => _payloadFactory;
 
   P2PStreamDagFetcher(
     this._host,
