@@ -2,16 +2,24 @@
 import 'dart:async';
 
 // CID is not directly used here anymore after removing receiveHead, but good for context.
-// import 'package:dart_cid/dart_cid.dart' show CID; 
+// import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:logging/logging.dart';
 
 import 'p2p_stream_dag_fetcher.dart';
 import 'gossipsub_announcer.dart';
 
-final _logger = Logger('MerkleCrdtGossipManager');
+// Existing logger
+// final _logger = Logger('MerkleCrdtGossipManager'); 
+// No change needed for the logger instance itself, just its usage.
 
 class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
+  // Logger for this class - ensure it's initialized if not already top-level
+  // Assuming the top-level _logger is intended for this class.
+  // If not, uncomment and use:
+  static final _logger = Logger('MerkleCrdtGossipManager');
+
+
   final MerkleCRDT<V, P> _merkleCrdt;
   // _announcer is passed to MerkleCRDT, which uses it internally.
   // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
@@ -23,10 +31,16 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   V? _currentState;
 
   /// Stream of CRDT state updates (logical value V). Emits the new state whenever it changes.
-  Stream<V?> get onStateChanged => _stateController.stream;
+  Stream<V?> get onStateChanged {
+    _logger.finer('onStateChanged: Stream accessed.');
+    return _stateController.stream;
+  }
 
   /// Gets the current cached logical value of the CRDT.
-  V? get currentState => _currentState;
+  V? get currentState {
+    _logger.finer('currentState: Getter accessed. Returning: $_currentState');
+    return _currentState;
+  }
 
   MerkleCrdtGossipManager({
     required P2PStreamDagFetcher<P, V> dagFetcher,
@@ -35,9 +49,11 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
           dagSyncer: dagFetcher,
           broadcaster: announcer, // MerkleCRDT will use this to subscribe and broadcast
         ) {
+    _logger.info('MerkleCrdtGossipManager: Constructor started. dagFetcher: ${dagFetcher.runtimeType}, announcer: ${announcer.runtimeType}');
     // Initial state update
-    _updateCurrentStateAndNotify();
+    _updateCurrentStateAndNotify(); 
 
+    _logger.info('MerkleCrdtGossipManager: Initialized successfully. MerkleCRDT instance created.');
     // MerkleCRDT is expected to call broadcaster.subscribe() itself.
     // If we want to be notified of MerkleCRDT state changes beyond our own actions,
     // MerkleCRDT would need to provide its own state update stream, or we poll/check after known events.
@@ -50,57 +66,87 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   }
 
   Future<void> _updateCurrentStateAndNotify() async {
-    _logger.fine('Updating and notifying current state...');
+    _logger.fine('_updateCurrentStateAndNotify: Updating and notifying current state...');
     try {
-      P? payloadState = await _merkleCrdt.getState(); // Returns P?
-      V? logicalValue = payloadState?.value;       // Convert P? to V?
+      P? payloadState = await _merkleCrdt.getState(); 
+      _logger.finer('_updateCurrentStateAndNotify: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
+      V? logicalValue = payloadState?.value;       
+      _logger.finer('_updateCurrentStateAndNotify: Derived logical value: ${logicalValue?.toString() ?? "null"}');
 
-      if (_currentState != logicalValue) { // Only update and notify if different
+      // Using `identical` for potentially complex objects, or `==` if overridden appropriately.
+      // For simple types or if `==` is well-defined for V, `_currentState != logicalValue` is fine.
+      // If V can be null, ensure comparison handles it.
+      bool changed;
+      if (_currentState == null && logicalValue == null) {
+        changed = false;
+      } else if (_currentState == null || logicalValue == null) {
+        changed = true; // One is null, the other isn't
+      } else {
+        // This assumes V has a meaningful equality operator.
+        // For complex Set<String> or custom objects, ensure `==` is correctly implemented.
+        // If V is a collection, deep equality might be needed if `==` isn't overridden.
+        changed = (_currentState != logicalValue); 
+      }
+
+      if (changed) { 
+        _logger.info('_updateCurrentStateAndNotify: State changed. Old: $_currentState, New: $logicalValue. Notifying listeners.');
         _currentState = logicalValue;
         _stateController.add(_currentState);
-        _logger.fine('CRDT state updated. New logical value: $_currentState');
       } else {
-        _logger.finer('CRDT state unchanged. Logical value: $_currentState');
+        _logger.finer('_updateCurrentStateAndNotify: CRDT state unchanged. Logical value: $_currentState');
       }
     } catch (e, s) {
-      _logger.severe('Error getting or updating CRDT state: $e', e, s);
-      // Do not change _currentState or add to _stateController on error
+      _logger.severe('_updateCurrentStateAndNotify: Error getting or updating CRDT state: $e', e, s);
     }
   }
 
   /// Applies a local update to the CRDT.
   /// The payload `P` should be the CRDT-specific payload type (e.g., GSet, Counter).
   Future<void> applyLocalUpdate(P payload) async {
-    _logger.info('Applying local update...');
+    _logger.info('applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
     try {
       await _merkleCrdt.add(payload);
-      _logger.fine('Local update applied. MerkleCRDT will broadcast new head via its broadcaster.');
-      // After a local update, the state will have changed.
-      await _updateCurrentStateAndNotify();
+      _logger.fine('applyLocalUpdate: Local update applied to MerkleCRDT. MerkleCRDT will broadcast new head.');
+      await _updateCurrentStateAndNotify(); // Refresh and notify after local change
+      _logger.info('applyLocalUpdate: Successfully applied local update. Current state: $_currentState');
     } catch (e, s) {
-      _logger.severe('Error applying local update: $e', e, s);
-      rethrow; // Rethrow to let the caller know
+      _logger.severe('applyLocalUpdate: Error applying local update with payload ${payload.toString()}: $e', e, s);
+      rethrow; 
     }
   }
 
   /// Retrieves the current merged logical value of the CRDT.
   /// This fetches the latest state from the underlying MerkleCRDT.
   Future<V?> getState() async {
-    _logger.fine('getState() called, fetching latest from MerkleCRDT.');
+    _logger.fine('getState: Called, fetching latest state from MerkleCRDT.');
     try {
-      P? payloadState = await _merkleCrdt.getState(); // Returns P?
-      V? logicalValue = payloadState?.value;       // Convert P? to V?
-      // Update local cache and notify if it changed, even if called directly.
-      if (_currentState != logicalValue) {
+      P? payloadState = await _merkleCrdt.getState(); 
+      _logger.finer('getState: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
+      V? logicalValue = payloadState?.value;       
+      _logger.finer('getState: Derived logical value: ${logicalValue?.toString() ?? "null"}');
+      
+      // This method is primarily a getter, but we can still update our cache
+      // and notify if a direct fetch reveals a change not yet reflected.
+      bool changed;
+      if (_currentState == null && logicalValue == null) {
+        changed = false;
+      } else if (_currentState == null || logicalValue == null) {
+        changed = true;
+      } else {
+        changed = (_currentState != logicalValue);
+      }
+
+      if (changed) {
+        _logger.info('getState: Fetched state ($logicalValue) differs from cached state ($_currentState). Updating cache and notifying.');
         _currentState = logicalValue;
         _stateController.add(_currentState);
+      } else {
+        _logger.finer('getState: Fetched state is same as cached. Value: $_currentState');
       }
       return logicalValue;
     } catch (e, s) {
-      _logger.severe('Error during getState(): $e', e, s);
-      // Return the last known good state in case of error, or rethrow/return null
-      // For now, return the cached state which might be stale but better than erroring.
-      _logger.warning('Returning cached state due to error in getState: $_currentState');
+      _logger.severe('getState: Error during MerkleCRDT.getState(): $e', e, s);
+      _logger.warning('getState: Returning cached state due to error: $_currentState');
       return _currentState; 
     }
   }
@@ -108,14 +154,16 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   /// Call this method periodically or after events that might indicate remote changes
   /// if MerkleCRDT doesn't provide its own state update stream.
   Future<void> refreshState() async {
-    _logger.info('Refreshing CRDT state...');
-    await _updateCurrentStateAndNotify();
+    _logger.info('refreshState: Explicitly refreshing CRDT state...');
+    await _updateCurrentStateAndNotify(); // This already logs its actions
+    _logger.fine('refreshState: State refresh complete. Current cached state: $_currentState');
   }
 
   Future<void> close() async {
-    _logger.info('Closing MerkleCrdtGossipManager...');
+    _logger.info('close: Closing MerkleCrdtGossipManager...');
     // _headSubscription was removed.
     await _stateController.close();
+    _logger.fine('close: State controller closed.');
     // The announcer and fetcher lifecycles are assumed to be managed externally
     // or tied to the lifecycle of the Host/PubSub instances they use.
     // If this manager "owned" them, it would call:
