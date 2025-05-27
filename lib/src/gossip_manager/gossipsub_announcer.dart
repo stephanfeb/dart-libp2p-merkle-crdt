@@ -57,6 +57,8 @@ class GossipSubAnnouncer implements Broadcaster {
     }
 
     Stream<String> _processMessage(PubSubMessage message) async* {
+      // ADDED LOG
+      _logger.info('[GossipSubAnnouncer] Node ${_host.id.toBase58().substring(0,6)}: _processMessage: Received PubSubMessage from ${message.from.toBase58().substring(0,6)} on topic $_crdtInstanceTopic (subscribed). Data length: ${message.data.length}. (isMine: ${message.from == _host.id})');
       _logger.finer('_processMessage: Received PubSubMessage from ${message.from.toBase58()} on topic $_crdtInstanceTopic. Data length: ${message.data.length}');
       // Don't process messages from self if they somehow get through pubsub loopback
       if (message.from == _host.id) {

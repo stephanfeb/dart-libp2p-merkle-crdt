@@ -26,6 +26,36 @@ import 'package:test/test.dart';
 
 import '../real_net_stack.dart' show Libp2pNode, createLibp2pNode;
 
+// Wrapper class for GSet<String> to handle JSON serialization/deserialization
+class JsonSerializableGSet implements CRDTPayload<Set<String>> {
+  final GSet<String> _gset = GSet<String>();
+
+  @override
+  Set<String> get value => _gset.value;
+
+  @override
+  JsonSerializableGSet merge(covariant JsonSerializableGSet other) {
+    final newSet = JsonSerializableGSet();
+    newSet._gset.merge(other._gset); // Merge the internal GSet
+    return newSet;
+  }
+
+  @override
+  Uint8List toCanonicalBytes() {
+    // Serialize the GSet's value (a Set<String>) to a JSON array string, then to bytes.
+    final jsonString = jsonEncode(_gset.value.toList());
+    return utf8.encode(jsonString);
+  }
+
+  // Helper methods to interact with the GSet
+  void add(String item) => _gset.add(item);
+  bool contains(String item) => _gset.contains(item);
+  int get length => _gset.length;
+
+  @override
+  String toString() => _gset.toString(); // Or customize as needed for logging
+}
+
 final _logger = Logger('MerkleCrdtReplicationTest');
 
 // Configuration constants
@@ -51,38 +81,34 @@ List<MultiAddr> _transformToDialable(List<MultiAddr> addrs) {
   return dialableAddrs;
 }
 
-// Payload factory for GSet<String>
-// V = Set<String>, P = GSet<String>
-GSet<String> gsetPayloadFactory(Uint8List payloadBytes) {
+// Payload factory for JsonSerializableGSet
+// V = Set<String>, P = JsonSerializableGSet
+JsonSerializableGSet gsetPayloadFactory(Uint8List payloadBytes) {
   try {
     final jsonString = utf8.decode(payloadBytes);
     final List<dynamic> stringList = jsonDecode(jsonString);
-    final gset = GSet<String>();
+    final serializableGset = JsonSerializableGSet();
     for (final item in stringList) {
       if (item is String) {
-        gset.add(item);
+        serializableGset.add(item);
       } else {
-        // Log or handle non-string items if necessary
         _logger.warning('gsetPayloadFactory: Encountered non-string item "$item" during deserialization.');
       }
     }
-    return gset;
+    return serializableGset;
   } catch (e, s) {
     _logger.severe('gsetPayloadFactory: Error deserializing payload.', e, s);
-    // Depending on desired behavior, either rethrow or return an empty/default GSet
-    // For testing, rethrowing might be better to catch serialization issues.
-    // However, to match the original placeholder's "return empty on issue" style:
-    return GSet<String>(); // Or rethrow;
+    return JsonSerializableGSet(); 
   }
 }
 
 class _NodeWithMerkleCRDT {
   late Libp2pNode nodeDetails;
   late PubSub pubsub;
-  late InMemoryBlockStore<GSet<String>, Set<String>> blockStore; // P, V
-  late P2PStreamDagFetcher<GSet<String>, Set<String>> dagFetcher; // P, V
+  late InMemoryBlockStore<JsonSerializableGSet, Set<String>> blockStore; // P, V
+  late P2PStreamDagFetcher<JsonSerializableGSet, Set<String>> dagFetcher; // P, V
   late GossipSubAnnouncer announcer;
-  late MerkleCrdtGossipManager<Set<String>, GSet<String>> manager; // V, P
+  late MerkleCrdtGossipManager<Set<String>, JsonSerializableGSet> manager; // V, P
 
   late Host host;
   late PeerId peerId;
@@ -129,23 +155,35 @@ class _NodeWithMerkleCRDT {
     helper.pubsub = PubSub(helper.host, router);
 
     // Setup MerkleCRDT components
-    helper.blockStore = InMemoryBlockStore<GSet<String>, Set<String>>(); // P, V
-    helper.dagFetcher = P2PStreamDagFetcher<GSet<String>, Set<String>>( // P, V
+    helper.blockStore = InMemoryBlockStore<JsonSerializableGSet, Set<String>>(); // P, V
+    helper.dagFetcher = P2PStreamDagFetcher<JsonSerializableGSet, Set<String>>( // P, V
       helper.host,
       helper.blockStore,
       dagSyncProtocolId,
-      gsetPayloadFactory,
-      dht: helper.dht, // Pass the DHT instance obtained from nodeDetails
+      gsetPayloadFactory, // Updated factory
+      dht: helper.dht, 
     );
     helper.announcer = GossipSubAnnouncer(
       helper.host,
       helper.pubsub,
       crdtInstanceId,
     );
-    helper.manager = MerkleCrdtGossipManager<Set<String>, GSet<String>>( // V, P
+    // Determine logger name based on userAgentPrefix
+    String managerLoggerName = 'Manager-Unknown';
+    if (userAgentPrefix != null) {
+      if (userAgentPrefix.startsWith('NodeA')) {
+        managerLoggerName = 'ManagerA';
+      } else if (userAgentPrefix.startsWith('NodeB')) {
+        managerLoggerName = 'ManagerB';
+      } else {
+        managerLoggerName = userAgentPrefix.replaceAll('-', ''); // Basic transformation
+      }
+    }
+
+    helper.manager = MerkleCrdtGossipManager<Set<String>, JsonSerializableGSet>( // V, P
       dagFetcher: helper.dagFetcher,
       announcer: helper.announcer,
-      // Assuming MerkleCrdtGossipManager creates its own MerkleCRDT instance internally
+      loggerName: managerLoggerName, // Pass the logger name
     );
 
     return helper;
@@ -368,9 +406,9 @@ void main() {
       });
 
       _logger.info('Node A (${peerIdA.toBase58().substring(0,6)}) applying local update with value: $uniqueValue');
-      final gsetUpdate = GSet<String>();
+      final gsetUpdate = JsonSerializableGSet(); // Use the wrapper
       gsetUpdate.add(uniqueValue);
-      await managerA.applyLocalUpdate(gsetUpdate);
+      await managerA.applyLocalUpdate(gsetUpdate); // Pass the wrapper
       _logger.info('Node A (${peerIdA.toBase58().substring(0,6)}) local update applied. Current state: ${await managerA.getState()}');
 
       try {

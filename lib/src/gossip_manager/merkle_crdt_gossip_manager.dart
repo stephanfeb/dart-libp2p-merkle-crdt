@@ -15,16 +15,14 @@ import 'gossipsub_announcer.dart';
 // No change needed for the logger instance itself, just its usage.
 
 class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
-  // Logger for this class - ensure it's initialized if not already top-level
-  // Assuming the top-level _logger is intended for this class.
-  // If not, uncomment and use:
-  static final _logger = Logger('MerkleCrdtGossipManager');
-
+  // Logger for this class - will be instance-specific
+  final Logger _logger;
 
   final MerkleCRDT<V, P> _merkleCrdt;
   final P2PStreamDagFetcher<P, V> _dagFetcher; // Store the dagFetcher
   // _announcer is passed to MerkleCRDT, which uses it internally.
   // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
+  String get _shortPeerId => _dagFetcher.peerId.toBase58().substring(0, 6);
 
   // No longer needed as MerkleCRDT handles its broadcaster subscription internally.
   // StreamSubscription<String>? _headSubscription; 
@@ -47,6 +45,7 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   MerkleCrdtGossipManager({
     required P2PStreamDagFetcher<P, V> dagFetcher,
     required GossipSubAnnouncer announcer,
+    String? loggerName, // Added loggerName parameter
     // Parameters for MerkleCRDT constructor if it's different from default
     // For example, if it needs BlockStore, initialPayload, factories directly:
     // required BlockStore<P,V> blockStore,
@@ -54,7 +53,8 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     // required P Function(Uint8List) payloadFactory,
     // required Uint8List Function(P) payloadSerializer,
 
-  }) : _merkleCrdt = MerkleCRDT<V, P>( // This is the original instantiation
+  }) : _logger = Logger(loggerName ?? 'MerkleCrdtGossipManager'), // Initialize instance logger
+        _merkleCrdt = MerkleCRDT<V, P>( // This is the original instantiation
           // blockStore: blockStore, // Assuming these are properties of MerkleCRDT or set via methods
           // initialPayload: initialPayload,
           // fromBytes: payloadFactory,
@@ -63,11 +63,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
           broadcaster: announcer, // MerkleCRDT uses this to subscribe and broadcast head CIDs
         ),
         _dagFetcher = dagFetcher { // Initialize the _dagFetcher field
-    _logger.info('MerkleCrdtGossipManager: Constructor started. dagFetcher: ${dagFetcher.runtimeType}, announcer: ${announcer.runtimeType}');
+    _logger.info('Instance created. Effective logger name: ${_logger.name}. ShortPeerId: $_shortPeerId'); // New diagnostic log
+    _logger.info('Node $_shortPeerId: Constructor logic continues. dagFetcher: ${dagFetcher.runtimeType}, announcer: ${announcer.runtimeType}');
     // Initial state update
     _updateCurrentStateAndNotify(); 
 
-    _logger.info('MerkleCrdtGossipManager: Initialized successfully. MerkleCRDT instance created.');
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: Initialized successfully. MerkleCRDT instance created.');
     // MerkleCRDT is expected to call broadcaster.subscribe() itself.
     // If we want to be notified of MerkleCRDT state changes beyond our own actions,
     // MerkleCRDT would need to provide its own state update stream, or we poll/check after known events.
@@ -80,12 +81,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   }
 
   Future<void> _updateCurrentStateAndNotify() async {
-    _logger.fine('_updateCurrentStateAndNotify: Updating and notifying current state...');
+    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: Updating and notifying current state...');
     try {
       P? payloadState = await _merkleCrdt.getState(); 
-      _logger.finer('_updateCurrentStateAndNotify: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
+      _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
       V? logicalValue = payloadState?.value;       
-      _logger.finer('_updateCurrentStateAndNotify: Derived logical value: ${logicalValue?.toString() ?? "null"}');
+      _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: Derived logical value: ${logicalValue?.toString() ?? "null"}');
 
       // Using `identical` for potentially complex objects, or `==` if overridden appropriately.
       // For simple types or if `==` is well-defined for V, `_currentState != logicalValue` is fine.
@@ -103,43 +104,43 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       }
 
       if (changed) { 
-        _logger.info('_updateCurrentStateAndNotify: State changed. Old: $_currentState, New: $logicalValue. Notifying listeners.');
+        _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: State changed. Old: $_currentState, New: $logicalValue. Notifying ${_stateController.hasListener ? "listeners" : "NO listeners"}.');
         _currentState = logicalValue;
         _stateController.add(_currentState);
       } else {
-        _logger.finer('_updateCurrentStateAndNotify: CRDT state unchanged. Logical value: $_currentState');
+        _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: CRDT state unchanged. Logical value: $_currentState');
       }
     } catch (e, s) {
-      _logger.severe('_updateCurrentStateAndNotify: Error getting or updating CRDT state: $e', e, s);
+      _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: _updateCurrentStateAndNotify: Error getting or updating CRDT state: $e', e, s);
     }
   }
 
   /// Applies a local update to the CRDT.
   /// The payload `P` should be the CRDT-specific payload type (e.g., GSet, Counter).
   Future<void> applyLocalUpdate(P payload) async {
-    _logger.info('applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
     try {
       final CID newHeadCid = await _merkleCrdt.add(payload);
-      _logger.fine('applyLocalUpdate: Local update applied to MerkleCRDT. New head CID: $newHeadCid. MerkleCRDT will broadcast new head.');
+      _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Local update applied to MerkleCRDT. New head CID: $newHeadCid. MerkleCRDT will broadcast new head.');
 
       // Advertise the new head CID on the DHT
       if (_dagFetcher.dht != null) {
-        _logger.info('applyLocalUpdate: Attempting to provide new head CID $newHeadCid to local DHT.');
+        _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Attempting to provide new head CID $newHeadCid to local DHT.');
         try {
           await _dagFetcher.dht!.provide(newHeadCid, true); // Announce to DHT
-          _logger.info('applyLocalUpdate: Successfully provided new head CID $newHeadCid to local DHT.');
+          _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Successfully provided new head CID $newHeadCid to local DHT.');
         } catch (e, s) {
-          _logger.severe('applyLocalUpdate: Error providing new head CID $newHeadCid to DHT: $e', e, s);
+          _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Error providing new head CID $newHeadCid to DHT: $e', e, s);
           // Optionally rethrow or handle; for now, log and continue
         }
       } else {
-        _logger.warning('applyLocalUpdate: _dagFetcher.dht is null, cannot provide new head CID $newHeadCid to DHT.');
+        _logger.warning('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: _dagFetcher.dht is null, cannot provide new head CID $newHeadCid to DHT.');
       }
 
       await _updateCurrentStateAndNotify(); // Refresh and notify after local change
-      _logger.info('applyLocalUpdate: Successfully applied local update. Current state: $_currentState');
+      _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Successfully applied local update. Current state: $_currentState');
     } catch (e, s) {
-      _logger.severe('applyLocalUpdate: Error applying local update with payload ${payload.toString()}: $e', e, s);
+      _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Error applying local update with payload ${payload.toString()}: $e', e, s);
       rethrow; 
     }
   }
@@ -147,12 +148,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   /// Retrieves the current merged logical value of the CRDT.
   /// This fetches the latest state from the underlying MerkleCRDT.
   Future<V?> getState() async {
-    _logger.fine('getState: Called, fetching latest state from MerkleCRDT.');
+    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Called, fetching latest state from MerkleCRDT.');
     try {
       P? payloadState = await _merkleCrdt.getState(); 
-      _logger.finer('getState: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
+      _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Fetched payload state from MerkleCRDT: ${payloadState?.toString() ?? "null"}');
       V? logicalValue = payloadState?.value;       
-      _logger.finer('getState: Derived logical value: ${logicalValue?.toString() ?? "null"}');
+      _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Derived logical value: ${logicalValue?.toString() ?? "null"}');
       
       // This method is primarily a getter, but we can still update our cache
       // and notify if a direct fetch reveals a change not yet reflected.
@@ -166,16 +167,16 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       }
 
       if (changed) {
-        _logger.info('getState: Fetched state ($logicalValue) differs from cached state ($_currentState). Updating cache and notifying.');
+        _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Fetched state ($logicalValue) differs from cached state ($_currentState). Updating cache and notifying.');
         _currentState = logicalValue;
         _stateController.add(_currentState);
       } else {
-        _logger.finer('getState: Fetched state is same as cached. Value: $_currentState');
+        _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Fetched state is same as cached. Value: $_currentState');
       }
       return logicalValue;
     } catch (e, s) {
-      _logger.severe('getState: Error during MerkleCRDT.getState(): $e', e, s);
-      _logger.warning('getState: Returning cached state due to error: $_currentState');
+      _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Error during MerkleCRDT.getState(): $e', e, s);
+      _logger.warning('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Returning cached state due to error: $_currentState');
       return _currentState; 
     }
   }
@@ -183,22 +184,22 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   /// Call this method periodically or after events that might indicate remote changes
   /// if MerkleCRDT doesn't provide its own state update stream.
   Future<void> refreshState() async {
-    _logger.info('refreshState: Explicitly refreshing CRDT state...');
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: refreshState: Explicitly refreshing CRDT state...');
     await _updateCurrentStateAndNotify(); // This already logs its actions
-    _logger.fine('refreshState: State refresh complete. Current cached state: $_currentState');
+    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: refreshState: State refresh complete. Current cached state: $_currentState');
   }
 
   Future<void> close() async {
-    _logger.info('close: Closing MerkleCrdtGossipManager...');
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: close: Closing MerkleCrdtGossipManager...');
     // _headSubscription was removed.
     await _stateController.close();
-    _logger.fine('close: State controller closed.');
+    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: close: State controller closed.');
     // The announcer and fetcher lifecycles are assumed to be managed externally
     // or tied to the lifecycle of the Host/PubSub instances they use.
     // If this manager "owned" them, it would call:
     // await _announcer.close(); 
     // (P2PStreamDagFetcher doesn't have an explicit close for its stream handler management yet,
     // but BlockStore might).
-    _logger.info('MerkleCrdtGossipManager closed.');
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: MerkleCrdtGossipManager closed.');
   }
 }

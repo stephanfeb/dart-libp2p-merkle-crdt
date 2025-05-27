@@ -101,6 +101,9 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
   /// Public getter for the payload factory.
   P Function(Uint8List payloadBytes) get payloadFactory => _payloadFactory;
 
+  /// Public getter for the host's PeerId.
+  PeerId get peerId => _host.id;
+
   P2PStreamDagFetcher(
     this._host,
     this._blockStore,
