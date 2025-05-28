@@ -15,25 +15,25 @@ This document outlines a phased approach to building a set of P2P social primiti
 
 **Goal**: Establish actor identity, allow creation and publication of basic content, and enable content retrieval.
 
-*   **[ ] Actor Identity & Key Management**
-    *   [ ] Generate/manage cryptographic key pairs for actors.
-    *   [ ] Derive DIDs (e.g., `did:key`) from public keys.
-*   **[ ] Actor Profile CRDT**
-    *   [ ] Define Profile CRDT structure (LWW-Map or JSON-CRDT).
+*   **[x] Actor Identity & Key Management**
+    *   [x] Generate/manage cryptographic key pairs for actors.
+    *   [x] Derive DIDs (e.g., `did:key`) from public keys.
+*   **[x] Actor Profile CRDT**
+    *   [x] Define Profile CRDT structure (LWW-Map or JSON-CRDT).
         *   Required fields: `id` (DID), `type` ("Person", "Service", etc.), `publicKeyJwk`.
         *   Recommended fields: `name`, `preferredUsername`, `summary`, `icon` (CID to image), `image` (CID to image).
     *   [ ] Implement actor ability to create and update their Profile CRDT.
     *   [ ] Mechanism for Profile CRDT head to be gossiped (e.g., on topic `profiles/<actor_did>`).
     *   [ ] Mechanism for clients to discover and sync an actor's Profile CRDT.
-*   **[ ] Content Object (`Note`) - IPLD**
-    *   [ ] Define IPLD schema for a simple `Note` (e.g., `{"@context": "...", "type": "Note", "content": "...", "published": "timestamp"}`).
+*   **[x] Content Object (`Note`) - IPLD**
+    *   [x] Define IPLD schema for a simple `Note` (e.g., `{"@context": "...", "type": "Note", "content": "...", "published": "timestamp"}`).
     *   [ ] Actors can create `Note` IPLD blocks, resulting in a CID.
-*   **[ ] `Create` Activity - IPLD**
-    *   [ ] Define IPLD schema for `Create` activity (`{"@context": "...", "type": "Create", "actor": "actor_did", "object": "note_cid", "published": "timestamp"}`).
+*   **[x] `Create` Activity - IPLD**
+    *   [x] Define IPLD schema for `Create` activity (`{"@context": "...", "type": "Create", "actor": "actor_did", "object": "note_cid", "published": "timestamp"}`).
     *   [ ] Activities are signed by the actor's private key.
     *   [ ] Actors can create `Create` activity IPLD blocks, resulting in a CID.
-*   **[ ] `outbox` CRDT (Append-only Log)**
-    *   [ ] Define `outbox` as an append-only log CRDT storing CIDs of activities.
+*   **[x] `outbox` CRDT (Append-only Log)**
+    *   [x] Define `outbox` as an append-only log CRDT storing CIDs of activities.
     *   [ ] Implement actor ability to append new activity CIDs to their `outbox`.
     *   [ ] Mechanism for `outbox` CRDT head to be gossiped (e.g., on topic `outboxes/<actor_did>` or discoverable via Profile CRDT).
     *   [ ] Mechanism for clients to discover and sync an actor's `outbox`.

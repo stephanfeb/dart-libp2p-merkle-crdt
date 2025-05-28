@@ -818,6 +818,86 @@ class MockStream implements StreamSink<Uint8List>, P2PStream<Uint8List> {
   Stream<Uint8List> where(bool Function(Uint8List event) test) => _incomingController.stream.where(test);
 }
 
+// Helper to connect two libp2p Hosts for integration tests
+Future<void> connectPeers(Host hostA, Host hostB) async {
+  final logger = Logger('ConnectPeersUtil');
+  final peerIdA = hostA.id;
+  final peerIdB = hostB.id;
+
+  logger.info('Attempting to connect ${peerIdA.toBase58().substring(0,6)} and ${peerIdB.toBase58().substring(0,6)}');
+
+  final addrsA = hostA.addrs;
+  final addrsB = hostB.addrs;
+
+  if (addrsA.isEmpty) {
+    logger.warning('Host A (${peerIdA.toBase58().substring(0,6)}) has no listen addresses. Cannot connect.');
+    // Optionally throw an error or handle as a test failure condition
+    // For now, just log and proceed, connection will likely fail.
+  }
+  if (addrsB.isEmpty) {
+    logger.warning('Host B (${peerIdB.toBase58().substring(0,6)}) has no listen addresses. Cannot connect.');
+  }
+
+  // Add each other to peerstores
+  // Note: RealNetStack's BasicHost might handle some of this via Identify,
+  // but explicit addition is safer for tests.
+  if (addrsB.isNotEmpty) {
+    // Using addOrUpdatePeer from the local MockPeerstoreImpl if host is MockHost,
+    // or addrBook.addAddrs if it's a standard Peerstore.
+    // Assuming standard Peerstore for RealNetStack hosts.
+    hostA.peerStore.addrBook.addAddrs(peerIdB, addrsB, AddressTTL.permanentAddrTTL);
+    logger.info('Added Node B (${peerIdB.toBase58().substring(0,6)}) addrs to Node A\'s peerstore.');
+  }
+  if (addrsA.isNotEmpty) {
+    hostB.peerStore.addrBook.addAddrs(peerIdA, addrsA, AddressTTL.permanentAddrTTL);
+    logger.info('Added Node A (${peerIdA.toBase58().substring(0,6)}) addrs to Node B\'s peerstore.');
+  }
+  
+  bool connected = false;
+  if (addrsB.isNotEmpty) {
+    logger.info('Host A (${peerIdA.toBase58().substring(0,6)}) attempting to connect to Host B (${peerIdB.toBase58().substring(0,6)}) at $addrsB');
+    try {
+      // Assuming connect takes AddrInfo
+      await hostA.connect(AddrInfo(peerIdB, addrsB));
+      // A short delay to allow connection to establish
+      await Future.delayed(Duration(milliseconds: 500)); 
+      if (hostA.network.connectedness(peerIdB) == Connectedness.connected) {
+        logger.info('Host A successfully connected to Host B.');
+        connected = true;
+      } else {
+         logger.warning('Host A connect call to Host B completed, but connectedness is ${hostA.network.connectedness(peerIdB)}.');
+      }
+    } catch (e, s) {
+      logger.warning('Host A failed to connect to Host B: $e', e, s);
+    }
+  }
+
+  if (!connected && addrsA.isNotEmpty) {
+    logger.info('Host B (${peerIdB.toBase58().substring(0,6)}) attempting to connect to Host A (${peerIdA.toBase58().substring(0,6)}) as fallback at $addrsA');
+    try {
+      await hostB.connect(AddrInfo(peerIdA, addrsA));
+      await Future.delayed(Duration(milliseconds: 500));
+       if (hostB.network.connectedness(peerIdA) == Connectedness.connected) {
+        logger.info('Host B successfully connected to Host A.');
+        connected = true;
+      } else {
+        logger.warning('Host B connect call to Host A completed, but connectedness is ${hostB.network.connectedness(peerIdA)}.');
+      }
+    } catch (e, s) {
+      logger.warning('Host B failed to connect to Host A: $e', e, s);
+    }
+  }
+
+  if (!connected) {
+    logger.severe('Failed to connect peers ${peerIdA.toBase58().substring(0,6)} and ${peerIdB.toBase58().substring(0,6)}.');
+    // Optionally throw an exception here to fail tests immediately if connection is critical
+    // throw Exception('Failed to connect peers for test.');
+  } else {
+    logger.info('Peers ${peerIdA.toBase58().substring(0,6)} and ${peerIdB.toBase58().substring(0,6)} should now be connected.');
+  }
+}
+
+
 /// Creates a mock network with the specified number of hosts
 Future<MockNetwork> createMockNetwork(int numHosts) async {
   final hosts = <Host>[];
