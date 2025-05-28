@@ -38,10 +38,9 @@ class Actor {
 
   // Method to sign data
   Future<SignatureBase> sign(Uint8List data) async {
-    // privateKey.sign returns a SignedMessage object.
-    // SignedMessage.signature is Uint8List.
     final signedMessage = privateKey.sign(data);
-    return signedMessage.signature;
+    // signedMessage.signature is SignatureBase (or a compatible concrete type like pinenacl.api.Signature)
+    return signedMessage.signature; 
   }
 
   // Method to verify signature
