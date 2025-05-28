@@ -1,20 +1,30 @@
 import 'dart:async';
 
-import 'package:dart_libp2p/dart_libp2p.dart';
+import 'package:dart_libp2p/dart_libp2p.dart' as libp2p; // Should export Host, PeerId, EvtPeerConnectednessChanged, EventBus (interface)
+
+// Removed: import 'package:dart_libp2p/core.dart' as libp2p_core;
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
 import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, DHTOptions, DHTMode;
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore;
+import 'dart:typed_data'; // Added for Uint8List
+
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
-import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
+import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus; // Retain for hostEventBus in create()
+// EventBus, EvtPeerConnectednessChanged should be available from 'package:dart_libp2p/dart_libp2p.dart'
 import 'package:dart_udx/udx.dart' show UDX;
 import 'package:dart_cid/dart_cid.dart' show CID;
 
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
-import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart';
+import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart'; // Main import for CRDT lib types
 import 'package:dart_libp2p_merkle_crdt/src/p2p/p2p.dart'; // For Actor, OutboxCrdtPayload, OutboxData, Note, CreateActivity
+import 'package:dart_libp2p_merkle_crdt/src/block_store.dart' as raw_block_store; // Alias our new InMemoryBlockStore for raw blocks
+
+// Bitswap imports
+import 'package:dart_libp2p_bitswap/dart_libp2p_bitswap.dart' show Bitswap, IBlockStore, WantManager;
+import 'dart:convert' show jsonEncode, utf8; // For serializing objects to store
 
 import '../../real_net_stack.dart' show Libp2pNode, createLibp2pNode;
 import '../../test_utils.dart'; // For connectPeers
@@ -24,14 +34,16 @@ final _logger = Logger('OutboxSyncTest');
 // Helper class to bundle a node's components for the test
 class _OutboxNode {
   late Libp2pNode nodeDetails;
-  late Host host;
-  late PeerId peerId;
+  late libp2p.Host host;
+  late libp2p.PeerId peerId;
   late PubSub pubsub;
   late IpfsDHT dht;
   late Actor actor;
+  late Bitswap bitswap; // Added Bitswap instance
+  late raw_block_store.InMemoryBlockStore blockStore; // Use aliased type for raw IPLD blocks
   
-  // Specific to Outbox
-  late InMemoryBlockStore<OutboxCrdtPayload, OutboxData> outboxBlockStore;
+  // Specific to Outbox CRDT
+  late InMemoryBlockStore<OutboxCrdtPayload, OutboxData> outboxCrdtBlockStore; // Use direct type from merkle_crdt_lib
   late P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData> outboxDagFetcher;
   late GossipSubAnnouncer outboxAnnouncer;
   late MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload> outboxManager;
@@ -40,10 +52,11 @@ class _OutboxNode {
   _OutboxNode();
 
   Future<void> startNodeServices() async {
-    _logger.info('[$peerId] Starting PubSub and DHT for OutboxNode...');
+    _logger.info('[$peerId] Starting PubSub, DHT, and Bitswap for OutboxNode...');
     await pubsub.start();
     await dht.start();
-    _logger.info('[$peerId] PubSub and DHT started for OutboxNode.');
+    // Bitswap is started by its constructor via BitswapNetworkService
+    _logger.info('[$peerId] PubSub, DHT, and Bitswap services initialized/started for OutboxNode.');
   }
 
   static Future<_OutboxNode> create(String nodeName) async {
@@ -77,11 +90,26 @@ class _OutboxNode {
       options: const DHTOptions(mode: DHTMode.server),
     );
 
+    // Create general block store for IPLD objects
+    helper.blockStore = raw_block_store.InMemoryBlockStore();
+
+    // Setup Bitswap
+    // Need to get the peer events stream from the host's event bus
+    // Cast to the concrete BasicBus type to ensure the .on<T>() method is found.
+    final p2pBasicEventBus = helper.host.eventBus as p2p_event_bus.BasicBus;
+    final subscription = p2pBasicEventBus.subscribe(libp2p.EvtPeerConnectednessChanged);
+
+    helper.bitswap = Bitswap(
+      host: helper.host,
+      blockStore: helper.blockStore, // Use the general block store
+      peerEventsStream: subscription.stream,
+    );
+
     // Setup MerkleCRDT components for Outbox
-    helper.outboxBlockStore = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
+    helper.outboxCrdtBlockStore = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>(); // Use direct type
     helper.outboxDagFetcher = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
       helper.host,
-      helper.outboxBlockStore,
+      helper.outboxCrdtBlockStore, // Use the CRDT specific block store here
       '/my-app/outbox-crdt-dag-sync/1.0.0', // Unique protocol ID for outbox
       OutboxCrdtPayload.fromBytes,
       dht: helper.dht,
@@ -104,6 +132,7 @@ class _OutboxNode {
   Future<void> stop() async {
     _logger.info('Stopping OutboxNode ${actor.did.substring(8,12)}...');
     await outboxManager.close();
+    await bitswap.stop(); // Stop Bitswap
     await dht.close();
     await pubsub.stop();
     await host.close(); 
@@ -115,20 +144,28 @@ class _OutboxNode {
     final noteResult = await actor.createNote(content);
     final activityResult = await actor.createAndSignActivity(objectCid: noteResult.noteCid);
     
-    // Fetch current state (OutboxData) to build upon
+    // Store the Note and Activity blocks in the general blockStore for Bitswap
+    final noteBytes = Uint8List.fromList(utf8.encode(jsonEncode(noteResult.note.toJson())));
+    await blockStore.put(noteResult.noteCid, noteBytes);
+    _logger.info('[${actor.did.substring(8,14)}] Stored Note ${noteResult.noteCid} in blockStore.');
+
+    final activityBytes = Uint8List.fromList(utf8.encode(jsonEncode(activityResult.activity.toJson())));
+    await blockStore.put(activityResult.activityCid, activityBytes);
+     _logger.info('[${actor.did.substring(8,14)}] Stored Activity ${activityResult.activityCid} in blockStore.');
+
+    // Fetch current state (OutboxData) to build upon for the outbox CRDT
     final currentOutboxData = await outboxManager.getState();
     
-    // Create a new payload, initially empty or from current state
     OutboxCrdtPayload newPayload = OutboxCrdtPayload.create();
     if (currentOutboxData != null) {
-        for (final cidInLoop in currentOutboxData.activityCids) { // Renamed cid to cidInLoop
-            newPayload = newPayload.append(cidInLoop); // Re-add existing CIDs
+        for (final cidInLoop in currentOutboxData.activityCids) { 
+            newPayload = newPayload.append(cidInLoop); 
         }
     }
-    newPayload = newPayload.append(activityResult.activityCid); // Add the new CID
+    newPayload = newPayload.append(activityResult.activityCid); 
 
     await outboxManager.applyLocalUpdate(newPayload);
-    _logger.info('[${actor.did.substring(8,14)}] Published activity ${activityResult.activityCid} to outbox. New payload has ${newPayload.value.activityCids.length} CIDs.');
+    _logger.info('[${actor.did.substring(8,14)}] Published activity ${activityResult.activityCid} to outbox CRDT. New payload has ${newPayload.value.activityCids.length} CIDs.');
     return (note: noteResult.note, activity: activityResult.activity as CreateActivity, activityCid: activityResult.activityCid);
   }
 }
@@ -160,11 +197,11 @@ void main() {
 
       _logger.info('Populating DHT routing tables and bootstrapping for Outbox test...');
       if (nodeB.host.addrs.isNotEmpty) {
-        nodeA.host.peerStore.addrBook.addAddrs(nodeB.peerId, nodeB.host.addrs, AddressTTL.permanentAddrTTL);
+        nodeA.host.peerStore.addrBook.addAddrs(nodeB.peerId, nodeB.host.addrs, libp2p.AddressTTL.permanentAddrTTL);
         await nodeA.dht.routingTable.tryAddPeer(nodeB.peerId, queryPeer: true);
       }
       if (nodeA.host.addrs.isNotEmpty) {
-        nodeB.host.peerStore.addrBook.addAddrs(nodeA.peerId, nodeA.host.addrs, AddressTTL.permanentAddrTTL);
+        nodeB.host.peerStore.addrBook.addAddrs(nodeA.peerId, nodeA.host.addrs, libp2p.AddressTTL.permanentAddrTTL);
         await nodeB.dht.routingTable.tryAddPeer(nodeA.peerId, queryPeer: true);
       }
       
@@ -188,11 +225,11 @@ void main() {
     test('Activity published to Node A outbox replicates to Node B', () async {
       // Node B needs to manage/sync Node A's outbox CRDT.
       _logger.info('Setting up Node B to sync Node A\'s outbox (${nodeA.outboxCrdtId})');
-      final blockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
+      final crdtBlockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>(); // Use direct type
       
       final dagFetcherBForAOutbox = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
         nodeB.host,
-        blockStoreBForAOutbox,
+        crdtBlockStoreBForAOutbox, // Use the CRDT specific store
         '/my-app/outbox-crdt-dag-sync/1.0.0', // Must match Node A's fetcher protocol
         OutboxCrdtPayload.fromBytes,
         dht: nodeB.dht, // Use Node B's DHT
