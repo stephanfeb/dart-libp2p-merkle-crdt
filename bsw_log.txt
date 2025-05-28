@@ -1,0 +1,174 @@
+// BSW_LOG: WantManager instance created.
+// NodeA-BS BSW_LOG: BitswapNetworkService instance created.
+// NodeA-BS BSW_LOG: BitswapNetworkService: Bitswap protocol handler registered for /ipfs/bitswap/1.2.0
+// NodeA-BS BSW_LOG: Bitswap constructor: Network service started.
+// NodeA-BS BSW_LOG: Bitswap: Listening to provided peer connectedness event stream.
+// NodeA-BS BSW_LOG: Bitswap instance created for host: 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6.
+// BSW_LOG: WantManager instance created.
+// NodeB-BS BSW_LOG: BitswapNetworkService instance created.
+// NodeB-BS BSW_LOG: BitswapNetworkService: Bitswap protocol handler registered for /ipfs/bitswap/1.2.0
+// NodeB-BS BSW_LOG: Bitswap constructor: Network service started.
+// NodeB-BS BSW_LOG: Bitswap: Listening to provided peer connectedness event stream.
+// NodeB-BS BSW_LOG: Bitswap instance created for host: 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm.
+// NodeB-BS BSW_LOG: getBlock called for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy
+// NodeB-BS BSW_LOG: getBlock: Block bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy not in local store. Adding to wantlist and attempting to fetch.
+// NodeB-BS BSW_LOG: wantBlocks called with 1 CIDs: bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy
+// BSW_LOG: WantManager: addLocalWant for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Priority: 1, Type: Block, SendDontHave: false
+// BSW_LOG: WantManager: Added/Updated local wantlist for: bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Entry: WantlistEntry(cid: bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy, priority: 1, type: Block, sendDontHave: false, peersSentTo: 0, hasCompleter: true)
+// NodeB-BS BSW_LOG: wantBlocks: Wanting 1 blocks. Broadcasting wantlist.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Starting peer discovery.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Initial active peers: {}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Found 3 connections from host.network.conns.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Final list of Bitswap peers: [12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6, 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm]
+// NodeB-BS BSW_LOG: wantBlocks: Peers to send wantlist to: [12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6, 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm]
+// NodeB-BS BSW_LOG: wantBlocks: Sending wantlist to peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 for 1 CIDs.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Attempting to send Bitswap message. Summary: Wantlist: true, Payloads: 0, Presences: 0
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] No active stream, opening new one.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] _host runtimeType: BasicHost, hashCode: 170578515
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Calling _host.newStream for peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 (12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6) with protocol /ipfs/bitswap/1.2.0
+// BSW_LOG: WantManager: recordWantSentToPeer for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy to Peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6.
+// NodeB-BS BSW_LOG: wantBlocks: Sending wantlist to peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm for 1 CIDs.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Attempting to send Bitswap message. Summary: Wantlist: true, Payloads: 0, Presences: 0
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] No active stream, opening new one.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] _host runtimeType: BasicHost, hashCode: 170578515
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Calling _host.newStream for peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm (12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm) with protocol /ipfs/bitswap/1.2.0
+// BSW_LOG: WantManager: recordWantSentToPeer for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy to Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm.
+// NodeB-BS BSW_LOG: getBlock: Called wantBlocks for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Now waiting on whenBlockReceived.
+// BSW_LOG: WantManager: whenBlockReceived called for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy.
+// BSW_LOG: WantManager: Found entry for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy in local wantlist. Returning completer future.
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Received incoming Bitswap stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] _host.newStream completed. Stream ID: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] New stream Closure: () => String from Function 'id':. to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm added to active streams.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Preparing to send. LengthPrefix: [44] (1 bytes), MessagePayload: 44 bytes. Stream: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] MessagePayload (first 64 bytes): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing length prefix (1 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing message payload (44 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Bitswap message sent successfully.
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Received incoming Bitswap stream.
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Read chunk of 1 bytes. Total buffered: 1. Chunk data (first 32): [44]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Decoded varint. MessagePayloadLength: 44, VarintBytesConsumed: 1. Current Buffer (first 32): [44]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Expecting total message length (varint prefix + payload) of 45 bytes (1 for prefix, 44 for payload).
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] _host.newStream completed. Stream ID: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] New stream Closure: () => String from Function 'id':. to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 added to active streams.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Preparing to send. LengthPrefix: [44] (1 bytes), MessagePayload: 44 bytes. Stream: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] MessagePayload (first 64 bytes): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Writing length prefix (1 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Writing message payload (44 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Bitswap message sent successfully.
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Read body chunk of 44 bytes. Total buffered: 45 / 45. Chunk data (first 32): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Total data received for message processing: 45 bytes. Data (first 64): [44, 10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Extracted message payload of 44 bytes. Payload (first 64): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Deserialized message. Calling message handler. Wants: 1, Blocks: 0
+// NodeB-BS BSW_LOG: handleIncomingMessage from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. HasWantlist: true, PayloadCount: 0, PresenceCount: 0
+// NodeB-BS BSW_LOG: _handleWantlist from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. Entries: 1, Full: false
+// NodeB-BS BSW_LOG: _handleWantlist: Added 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm to active Bitswap peers.
+// NodeB-BS BSW_LOG: _handleWantlist: Processing entry for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. Cancel: false, WantType: Block, Priority: 0, SendDontHave: false
+// NodeB-BS BSW_LOG: _handleWantlist: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm wants CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy, type: Block, priority: 0, sendDontHave: false
+// BSW_LOG: WantManager: addPeerWant from Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Priority: 0, Type: Block, SendDontHave: false
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Finished processing incoming stream.
+// NodeB-BS BSW_LOG: _handleWantlist: Checked blockStore for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. HasBlock: false
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Read chunk of 1 bytes. Total buffered: 1. Chunk data (first 32): [44]
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Decoded varint. MessagePayloadLength: 44, VarintBytesConsumed: 1. Current Buffer (first 32): [44]
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Expecting total message length (varint prefix + payload) of 45 bytes (1 for prefix, 44 for payload).
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Read body chunk of 44 bytes. Total buffered: 45 / 45. Chunk data (first 32): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195]
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Total data received for message processing: 45 bytes. Data (first 64): [44, 10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Extracted message payload of 44 bytes. Payload (first 64): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 27, 160, 253, 183, 116, 179, 80, 205, 173, 42, 108, 239, 196, 131, 30, 92, 183, 39, 234, 109, 44, 195, 163, 14, 78, 103, 59, 170, 245, 96, 60, 134, 32, 0]
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Deserialized message. Calling message handler. Wants: 1, Blocks: 0
+// NodeA-BS BSW_LOG: handleIncomingMessage from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. HasWantlist: true, PayloadCount: 0, PresenceCount: 0
+// NodeA-BS BSW_LOG: _handleWantlist from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. Entries: 1, Full: false
+// NodeA-BS BSW_LOG: _handleWantlist: Added 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm to active Bitswap peers.
+// NodeA-BS BSW_LOG: _handleWantlist: Processing entry for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm. Cancel: false, WantType: Block, Priority: 0, SendDontHave: false
+// NodeA-BS BSW_LOG: _handleWantlist: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm wants CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy, type: Block, priority: 0, sendDontHave: false
+// BSW_LOG: WantManager: addPeerWant from Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Priority: 0, Type: Block, SendDontHave: false
+// NodeA-BS BSW_LOG: [Incoming from 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm on stream Closure: () => String from Function 'id':.] Finished processing incoming stream.
+// NodeA-BS BSW_LOG: _handleWantlist: Checked blockStore for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. HasBlock: true
+// NodeA-BS BSW_LOG: _handleWantlist: Retrieved block bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from blockStore. Data length: 415
+// NodeA-BS BSW_LOG: _handleWantlist: Sending block bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Attempting to send Bitswap message. Summary: Wantlist: false, Payloads: 1, Presences: 0
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] No active stream, opening new one.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] _host runtimeType: BasicHost, hashCode: 598120344
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Calling _host.newStream for peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm (12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm) with protocol /ipfs/bitswap/1.2.0
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Received incoming Bitswap stream.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] _host.newStream completed. Stream ID: Closure: () => String from Function 'id':.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] New stream Closure: () => String from Function 'id':. to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm added to active streams.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Preparing to send. LengthPrefix: [171, 3] (2 bytes), MessagePayload: 427 bytes. Stream: Closure: () => String from Function 'id':.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] MessagePayload (first 64 bytes): [26, 168, 3, 10, 4, 1, 113, 18, 32, 18, 159, 3, 166, 104, 64, 99, 111, 110, 116, 101, 120, 116, 120, 37, 104, 116, 116, 112, 115, 58, 47, 47, 119, 119, 119, 46, 119, 51, 46, 111, 114, 103, 47, 110, 115, 47, 97, 99, 116, 105, 118, 105, 116, 121, 115, 116, 114, 101, 97, 109, 115, 100, 116, 121]
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing length prefix (2 bytes) to stream.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing message payload (427 bytes) to stream.
+// NodeA-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Bitswap message sent successfully.
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Read chunk of 2 bytes. Total buffered: 2. Chunk data (first 32): [171, 3]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Decoded varint. MessagePayloadLength: 427, VarintBytesConsumed: 2. Current Buffer (first 32): [171, 3]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Expecting total message length (varint prefix + payload) of 429 bytes (2 for prefix, 427 for payload).
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Read body chunk of 427 bytes. Total buffered: 429 / 429. Chunk data (first 32): [26, 168, 3, 10, 4, 1, 113, 18, 32, 18, 159, 3, 166, 104, 64, 99, 111, 110, 116, 101, 120, 116, 120, 37, 104, 116, 116, 112, 115, 58, 47, 47]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Total data received for message processing: 429 bytes. Data (first 64): [171, 3, 26, 168, 3, 10, 4, 1, 113, 18, 32, 18, 159, 3, 166, 104, 64, 99, 111, 110, 116, 101, 120, 116, 120, 37, 104, 116, 116, 112, 115, 58, 47, 47, 119, 119, 119, 46, 119, 51, 46, 111, 114, 103, 47, 110, 115, 47, 97, 99, 116, 105, 118, 105, 116, 121, 115, 116, 114, 101, 97, 109, 115, 100]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Extracted message payload of 427 bytes. Payload (first 64): [26, 168, 3, 10, 4, 1, 113, 18, 32, 18, 159, 3, 166, 104, 64, 99, 111, 110, 116, 101, 120, 116, 120, 37, 104, 116, 116, 112, 115, 58, 47, 47, 119, 119, 119, 46, 119, 51, 46, 111, 114, 103, 47, 110, 115, 47, 97, 99, 116, 105, 118, 105, 116, 121, 115, 116, 114, 101, 97, 109, 115, 100, 116, 121]
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Deserialized message. Calling message handler. Wants: 0, Blocks: 1
+// NodeB-BS BSW_LOG: handleIncomingMessage from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6. HasWantlist: false, PayloadCount: 1, PresenceCount: 0
+// NodeB-BS BSW_LOG: _handleReceivedBlock from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6. Prefix hex: 01711220, Data length: 415.
+// NodeB-BS BSW_LOG: _handleReceivedBlock: Successfully reconstructed CID: bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6.
+// BSW_LOG: WantManager: isWantingLocally for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy? true
+// NodeB-BS BSW_LOG: _handleReceivedBlock: CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy was wanted. Storing block.
+// NodeB-BS BSW_LOG: [Incoming from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 on stream Closure: () => String from Function 'id':.] Finished processing incoming stream.
+// BSW_LOG: WantManager: blockReceived for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Data length: 415
+// BSW_LOG: WantManager: Block bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy received was in local wantlist.
+// BSW_LOG: WantManager: Completed future for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy.
+// BSW_LOG: WantManager: removeLocalWant for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy.
+// BSW_LOG: WantManager: Removed bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from local wantlist.
+// NodeB-BS BSW_LOG: _handleReceivedBlock: Stored block bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy from 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 and notified WantManager.
+// NodeB-BS BSW_LOG: _sendCancelMessages for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy
+// BSW_LOG: WantManager: getPeersSentWantForCid for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy. Peers: {}
+// NodeB-BS BSW_LOG: _sendCancelMessages: Peers to send CANCEL to for bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy: {}
+// NodeB-BS BSW_LOG: _sendCancelMessages: No peers to send CANCEL for CID bafyreia3ud63o5ftkdg22ktm57cighs4w4t6u3jmyorq4tthhovpkyb4qy.
+// NodeB-BS BSW_LOG: getBlock called for CID bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m
+// NodeB-BS BSW_LOG: getBlock: Block bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m not in local store. Adding to wantlist and attempting to fetch.
+// NodeB-BS BSW_LOG: wantBlocks called with 1 CIDs: bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m
+// BSW_LOG: WantManager: addLocalWant for bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m. Priority: 1, Type: Block, SendDontHave: false
+// BSW_LOG: WantManager: Added/Updated local wantlist for: bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m. Entry: WantlistEntry(cid: bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m, priority: 1, type: Block, sendDontHave: false, peersSentTo: 0, hasCompleter: true)
+// NodeB-BS BSW_LOG: wantBlocks: Wanting 1 blocks. Broadcasting wantlist.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Starting peer discovery.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Initial active peers: {12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Found 3 connections from host.network.conns.
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Checking connection to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm
+// NodeB-BS BSW_LOG: _getBitswapPeers: Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm supports Bitswap. Protocols: {/ipfs/bitswap/1.2.0, /ipfs/id/1.0.0, /ipfs/id/push/1.0.0, /ipfs/kad/1.0.0, /ipfs/ping/1.0.0, /meshsub/1.1.0, /my-app/outbox-crdt-dag-sync/1.0.0}
+// NodeB-BS BSW_LOG: _getBitswapPeers: Final list of Bitswap peers: [12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm, 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6]
+// NodeB-BS BSW_LOG: wantBlocks: Peers to send wantlist to: [12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm, 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6]
+// NodeB-BS BSW_LOG: wantBlocks: Sending wantlist to peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm for 1 CIDs.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Attempting to send Bitswap message. Summary: Wantlist: true, Payloads: 0, Presences: 0
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Reusing existing stream Closure: () => String from Function 'id':..
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Preparing to send. LengthPrefix: [44] (1 bytes), MessagePayload: 44 bytes. Stream: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] MessagePayload (first 64 bytes): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 6, 250, 111, 128, 95, 229, 243, 133, 203, 152, 77, 12, 1, 118, 232, 221, 3, 141, 231, 69, 155, 151, 128, 133, 207, 242, 191, 192, 199, 102, 185, 251, 32, 0]
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing length prefix (1 bytes) to stream.
+// BSW_LOG: WantManager: recordWantSentToPeer for CID bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m to Peer 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm.
+// NodeB-BS BSW_LOG: wantBlocks: Sending wantlist to peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6 for 1 CIDs.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Attempting to send Bitswap message. Summary: Wantlist: true, Payloads: 0, Presences: 0
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Reusing existing stream Closure: () => String from Function 'id':..
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Preparing to send. LengthPrefix: [44] (1 bytes), MessagePayload: 44 bytes. Stream: Closure: () => String from Function 'id':.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] MessagePayload (first 64 bytes): [10, 42, 10, 40, 10, 36, 1, 113, 18, 32, 6, 250, 111, 128, 95, 229, 243, 133, 203, 152, 77, 12, 1, 118, 232, 221, 3, 141, 231, 69, 155, 151, 128, 133, 207, 242, 191, 192, 199, 102, 185, 251, 32, 0]
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Writing length prefix (1 bytes) to stream.
+// BSW_LOG: WantManager: recordWantSentToPeer for CID bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m to Peer 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6.
+// NodeB-BS BSW_LOG: getBlock: Called wantBlocks for bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m. Now waiting on whenBlockReceived.
+// BSW_LOG: WantManager: whenBlockReceived called for bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m.
+// BSW_LOG: WantManager: Found entry for bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m in local wantlist. Returning completer future.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Writing message payload (44 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Writing message payload (44 bytes) to stream.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWB79K8ejKrbw1kGP1iiiZmpPcUPFv9KE81PWvvDedjrkm] Bitswap message sent successfully.
+// NodeB-BS BSW_LOG: [Outgoing to 12D3KooWBtPnT1spYqY44EmSjhR4zRXq7wJNvHhz1QWEa6YnoGq6] Bitswap message sent successfully.
+// NodeB-BS BSW_LOG: getBlock: Timeout waiting for block bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m
+// BSW_LOG: WantManager: removeLocalWant for bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m.
+// BSW_LOG: WantManager: Removed bafyreiag7jxyax7f6oc4xgcnbqaxn2g5aog6orm3s6ailt7sx7amozvz7m from local wantlist.
+// NodeA-BS BSW_LOG: Bitswap stopping...
+// NodeA-BS BSW_LOG: BitswapNetworkService: Bitswap protocol handler unregistered for /ipfs/bitswap/1.2.0
+// NodeA-BS BSW_LOG: BitswapNetworkService: All active streams cleared.
+// NodeB-BS BSW_LOG: Bitswap stopping...
+// NodeB-BS BSW_LOG: BitswapNetworkService: Bitswap protocol handler unregistered for /ipfs/bitswap/1.2.0
+// NodeB-BS BSW_LOG: BitswapNetworkService: All active streams cleared.

@@ -117,6 +117,59 @@ class CreateActivity implements Activity {
       signature: json['signature'] as Map<String, dynamic>?,
     );
   }
+
+  factory CreateActivity.fromCborMap(Map<dynamic, dynamic> cborMap) {
+    final type = cborMap[CborString('type')] as CborString?;
+    if (type?.toString() != 'Create') {
+      throw ArgumentError('Invalid CBOR: type is not Create or missing.');
+    }
+
+    final actorValue = cborMap[CborString('actor')] as CborString?;
+    final publishedValue = cborMap[CborString('published')] as CborString?;
+    final contextValue = cborMap[CborString('@context')] as CborString?;
+    final objectValue = cborMap[CborString('object')] as CborBytes?;
+
+    if (actorValue == null) {
+      throw ArgumentError('Invalid CBOR: actor is missing.');
+    }
+    if (objectValue == null) {
+      throw ArgumentError('Invalid CBOR: object is missing.');
+    }
+    if (publishedValue == null) {
+      throw ArgumentError('Invalid CBOR: published is missing.');
+    }
+
+    // The object is a CID, stored as CborBytes with tag 42 (dag-cbor link)
+    final objectCid = CID.fromBytes(Uint8List.fromList(objectValue.bytes));
+
+    Map<String, dynamic>? signatureMap;
+    final signatureCborMap = cborMap[CborString('signature')] as CborMap?;
+    if (signatureCborMap != null) {
+      signatureMap = {};
+      signatureCborMap.forEach((key, value) { // Iterate directly on CborMap
+        if (key is CborString) {
+          if (value is CborString) {
+            signatureMap![key.toString()] = value.toString();
+          } else if (value is CborNull) {
+            signatureMap![key.toString()] = null;
+          } else {
+            // For all other CborValue types (CborBool, CborInt, CborFloat, CborBytes, CborList, CborMap etc.)
+            // use toObject() to get the Dart representation.
+            signatureMap![key.toString()] = value.toObject();
+          }
+        }
+        // Non-CborString keys in signature map are ignored for now
+      });
+    }
+
+    return CreateActivity(
+      actor: actorValue.toString(),
+      object: objectCid,
+      published: DateTime.parse(publishedValue.toString()),
+      context: contextValue?.toString() ?? activityStreamsContext,
+      signature: signatureMap,
+    );
+  }
 }
 
 // Example of how signing might be integrated (conceptual)

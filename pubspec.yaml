@@ -20,8 +20,6 @@ dependencies:
     path: /Users/stephanfeb/IdeaProjects/dart-libp2p
   dart_libp2p_pubsub:
     path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-pubsub
-  dart_libp2p_bitswap:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-bitswap
 
   collection: ^1.17.1
   logging: ^1.2.0

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package bitswap.pb; // Optional: defines a namespace for the generated Dart code
+
+// Message corresponds to the Bitswap Message protobuf definition.
+//
+// https://github.com/ipfs/specs/blob/master/bitswap/bitswap.md#bitswap-120-wire-format
+message Message {
+  message Wantlist {
+    enum WantType {
+      Block = 0;
+      Have = 1;
+    }
+
+    message Entry {
+      bytes block = 1; // CID of the block
+      int32 priority = 2; // the priority (normalized). default to 1
+      bool cancel = 3; // whether this revokes an entry
+      WantType wantType = 4; // Note: defaults to enum 0, ie Block
+      bool sendDontHave = 5; // Note: defaults to false
+    }
+
+    repeated Entry entries = 1; // a list of wantlist entries
+    bool full = 2; // whether this is the full wantlist. default to false
+  }
+
+  message Block {
+    bytes prefix = 1; // CID prefix (all of the CID components except for the digest of the multihash)
+    bytes data = 2;
+  }
+
+  enum BlockPresenceType {
+    Have = 0;
+    DontHave = 1;
+  }
+
+  message BlockPresence {
+    bytes cid = 1;
+    BlockPresenceType type = 2;
+  }
+
+  Wantlist wantlist = 1;
+  repeated Block payload = 3; // This field was 'blocks' in 1.0.0 and became 'payload' in 1.1.0
+  repeated BlockPresence blockPresences = 4;
+  int32 pendingBytes = 5;
+}

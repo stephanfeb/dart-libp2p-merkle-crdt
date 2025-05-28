@@ -73,4 +73,28 @@ class Note {
       CborString('published'): CborString(published.toIso8601String()),
     });
   }
+
+  factory Note.fromCborMap(Map<dynamic, dynamic> cborMap) {
+    final type = cborMap[CborString('type')] as CborString?;
+    if (type?.toString() != Note.type) {
+      throw ArgumentError('Invalid CBOR: type is not Note or missing.');
+    }
+
+    final contextValue = cborMap[CborString('@context')] as CborString?;
+    final contentValue = cborMap[CborString('content')] as CborString?;
+    final publishedValue = cborMap[CborString('published')] as CborString?;
+
+    if (contentValue == null) {
+      throw ArgumentError('Invalid CBOR: content is missing.');
+    }
+    if (publishedValue == null) {
+      throw ArgumentError('Invalid CBOR: published is missing.');
+    }
+
+    return Note(
+      content: contentValue.toString(),
+      published: DateTime.parse(publishedValue.toString()),
+      context: contextValue?.toString() ?? activityStreamsContext,
+    );
+  }
 }

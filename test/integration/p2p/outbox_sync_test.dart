@@ -1,38 +1,32 @@
 import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:dart_libp2p/dart_libp2p.dart' as libp2p; // Should export Host, PeerId, EvtPeerConnectednessChanged, EventBus (interface)
-
-// Removed: import 'package:dart_libp2p/core.dart' as libp2p_core;
+import 'package:dart_libp2p/dart_libp2p.dart' as libp2p;
+import 'package:dart_libp2p_merkle_crdt/src/bitswap/bitswap.dart';
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
 import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, DHTOptions, DHTMode;
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore;
-import 'dart:typed_data'; // Added for Uint8List
-
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
-import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus; // Retain for hostEventBus in create()
-// EventBus, EvtPeerConnectednessChanged should be available from 'package:dart_libp2p/dart_libp2p.dart'
+import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
 import 'package:dart_udx/udx.dart' show UDX;
 import 'package:dart_cid/dart_cid.dart' show CID;
-
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
+import 'package:cbor/cbor.dart';
 
-import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart'; // Main import for CRDT lib types
-import 'package:dart_libp2p_merkle_crdt/src/p2p/p2p.dart'; // For Actor, OutboxCrdtPayload, OutboxData, Note, CreateActivity
-import 'package:dart_libp2p_merkle_crdt/src/block_store.dart' as raw_block_store; // Alias our new InMemoryBlockStore for raw blocks
+import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart';
+import 'package:dart_libp2p_merkle_crdt/src/p2p/p2p.dart'; // For Actor, Note, CreateActivity, etc.
+import 'package:dart_libp2p_merkle_crdt/src/block_store.dart' as raw_block_store;
 
-// Bitswap imports
-import 'package:dart_libp2p_bitswap/dart_libp2p_bitswap.dart' show Bitswap, IBlockStore, WantManager;
-// import 'dart:convert' show jsonEncode, utf8; // jsonEncode no longer needed for block serialization here
-import 'package:cbor/cbor.dart'; // For cbor.encode
+// Import Bitswap from the (assumed) local path or correct package reference
+// This path might need adjustment based on your project structure or if bitswap is a dependency.
 
 import '../../real_net_stack.dart' show Libp2pNode, createLibp2pNode;
-import '../../test_utils.dart'; // For connectPeers
+import '../../test_utils.dart';
 
 final _logger = Logger('OutboxSyncTest');
 
-// Helper class to bundle a node's components for the test
 class _OutboxNode {
   late Libp2pNode nodeDetails;
   late libp2p.Host host;
@@ -40,15 +34,14 @@ class _OutboxNode {
   late PubSub pubsub;
   late IpfsDHT dht;
   late Actor actor;
-  late Bitswap bitswap; // Added Bitswap instance
-  late raw_block_store.InMemoryBlockStore blockStore; // Use aliased type for raw IPLD blocks
+  late Bitswap bitswap;
+  late raw_block_store.InMemoryBlockStore blockStore; // General block store for raw IPLD blocks
   
-  // Specific to Outbox CRDT
-  late InMemoryBlockStore<OutboxCrdtPayload, OutboxData> outboxCrdtBlockStore; // Use direct type from merkle_crdt_lib
+  late InMemoryBlockStore<OutboxCrdtPayload, OutboxData> outboxCrdtBlockStore;
   late P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData> outboxDagFetcher;
   late GossipSubAnnouncer outboxAnnouncer;
   late MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload> outboxManager;
-  String outboxCrdtId = ''; // Will be set after actor creation
+  String outboxCrdtId = '';
 
   _OutboxNode();
 
@@ -56,7 +49,6 @@ class _OutboxNode {
     _logger.info('[$peerId] Starting PubSub, DHT, and Bitswap for OutboxNode...');
     await pubsub.start();
     await dht.start();
-    // Bitswap is started by its constructor via BitswapNetworkService
     _logger.info('[$peerId] PubSub, DHT, and Bitswap services initialized/started for OutboxNode.');
   }
 
@@ -91,34 +83,30 @@ class _OutboxNode {
       options: const DHTOptions(mode: DHTMode.server),
     );
 
-    // Create general block store for IPLD objects
     helper.blockStore = raw_block_store.InMemoryBlockStore();
 
-    // Setup Bitswap
-    // Need to get the peer events stream from the host's event bus
-    // Cast to the concrete BasicBus type to ensure the .on<T>() method is found.
     final p2pBasicEventBus = helper.host.eventBus as p2p_event_bus.BasicBus;
     final subscription = p2pBasicEventBus.subscribe(libp2p.EvtPeerConnectednessChanged);
 
     helper.bitswap = Bitswap(
       host: helper.host,
-      blockStore: helper.blockStore, // Use the general block store
+      blockStore: helper.blockStore, // Bitswap uses the general block store
       peerEventsStream: subscription.stream,
+      nodeNameForLogging: "$nodeName-BS", // Pass the nodeName (e.g., "NodeA-BS")
     );
 
-    // Setup MerkleCRDT components for Outbox
-    helper.outboxCrdtBlockStore = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>(); // Use direct type
+    helper.outboxCrdtBlockStore = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
     helper.outboxDagFetcher = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
       helper.host,
-      helper.outboxCrdtBlockStore, // Use the CRDT specific block store here
-      '/my-app/outbox-crdt-dag-sync/1.0.0', // Unique protocol ID for outbox
+      helper.outboxCrdtBlockStore,
+      '/my-app/outbox-crdt-dag-sync/1.0.0',
       OutboxCrdtPayload.fromBytes,
       dht: helper.dht,
     );
     helper.outboxAnnouncer = GossipSubAnnouncer(
       helper.host,
       helper.pubsub,
-      helper.outboxCrdtId, // CRDT instance-specific topic for outbox
+      helper.outboxCrdtId,
     );
     helper.outboxManager = MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload>(
       dagFetcher: helper.outboxDagFetcher,
@@ -133,32 +121,29 @@ class _OutboxNode {
   Future<void> stop() async {
     _logger.info('Stopping OutboxNode ${actor.did.substring(8,12)}...');
     await outboxManager.close();
-    await bitswap.stop(); // Stop Bitswap
+    await bitswap.stop();
     await dht.close();
     await pubsub.stop();
     await host.close(); 
     _logger.info('OutboxNode ${actor.did.substring(8,12)} stopped.');
   }
 
-  // Helper to publish a note to the outbox
-  Future<({Note note, CreateActivity activity, CID activityCid})> publishNoteToOutbox(String content) async {
+  Future<({Note note, CreateActivity activity, CID activityCid, CID noteCid})> publishNoteToOutbox(String content) async {
     final noteResult = await actor.createNote(content);
     final activityResult = await actor.createAndSignActivity(objectCid: noteResult.noteCid);
     
-    // Store the Note and Activity blocks in the general blockStore for Bitswap using CBOR
     final noteCborValue = noteResult.note.toCborMap();
     final noteBytesEncoded = cbor.encode(noteCborValue);
     final noteBytesForStore = noteBytesEncoded is Uint8List ? noteBytesEncoded : Uint8List.fromList(noteBytesEncoded);
     await blockStore.put(noteResult.noteCid, noteBytesForStore);
-    _logger.info('[${actor.did.substring(8,14)}] Stored Note ${noteResult.noteCid} (CBOR) in blockStore.');
+    _logger.info('[${actor.did.substring(8,14)}] Stored Note ${noteResult.noteCid} (CBOR) in blockStore for Bitswap.');
 
     final activityCborValue = (activityResult.activity as CreateActivity).toCborMap();
     final activityBytesEncoded = cbor.encode(activityCborValue);
     final activityBytesForStore = activityBytesEncoded is Uint8List ? activityBytesEncoded : Uint8List.fromList(activityBytesEncoded);
     await blockStore.put(activityResult.activityCid, activityBytesForStore);
-    _logger.info('[${actor.did.substring(8,14)}] Stored Activity ${activityResult.activityCid} (CBOR) in blockStore.');
+    _logger.info('[${actor.did.substring(8,14)}] Stored Activity ${activityResult.activityCid} (CBOR) in blockStore for Bitswap.');
 
-    // Fetch current state (OutboxData) to build upon for the outbox CRDT
     final currentOutboxData = await outboxManager.getState();
     
     OutboxCrdtPayload newPayload = OutboxCrdtPayload.create();
@@ -171,7 +156,7 @@ class _OutboxNode {
 
     await outboxManager.applyLocalUpdate(newPayload);
     _logger.info('[${actor.did.substring(8,14)}] Published activity ${activityResult.activityCid} to outbox CRDT. New payload has ${newPayload.value.activityCids.length} CIDs.');
-    return (note: noteResult.note, activity: activityResult.activity as CreateActivity, activityCid: activityResult.activityCid);
+    return (note: noteResult.note, activity: activityResult.activity as CreateActivity, activityCid: activityResult.activityCid, noteCid: noteResult.noteCid);
   }
 }
 
@@ -182,7 +167,7 @@ void main() {
     if (record.error != null) print('ERROR: ${record.error}, STACK: ${record.stackTrace}');
   });
 
-  group('Outbox CRDT Synchronization Test', () {
+  group('Outbox CRDT Synchronization and Bitswap Fetch Test', () {
     late _OutboxNode nodeA;
     late _OutboxNode nodeB;
 
@@ -198,7 +183,8 @@ void main() {
       _logger.info('Node B Outbox CRDT ID: ${nodeB.outboxCrdtId}');
 
       await connectPeers(nodeA.host, nodeB.host);
-      await Future.delayed(Duration(seconds: 2));
+      _logger.info('Peers connected. Waiting 5 seconds for protocol exchange (Identify) to complete...');
+      await Future.delayed(Duration(seconds: 5)); // Increased delay for protocol exchange
 
       _logger.info('Populating DHT routing tables and bootstrapping for Outbox test...');
       if (nodeB.host.addrs.isNotEmpty) {
@@ -227,22 +213,21 @@ void main() {
       _logger.info('Outbox test nodes stopped.');
     });
 
-    test('Activity published to Node A outbox replicates to Node B', () async {
-      // Node B needs to manage/sync Node A's outbox CRDT.
+    test('Activity published to Node A outbox replicates to Node B, and content is fetched via Bitswap', () async {
       _logger.info('Setting up Node B to sync Node A\'s outbox (${nodeA.outboxCrdtId})');
-      final crdtBlockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>(); // Use direct type
+      final crdtBlockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
       
       final dagFetcherBForAOutbox = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
         nodeB.host,
-        crdtBlockStoreBForAOutbox, // Use the CRDT specific store
-        '/my-app/outbox-crdt-dag-sync/1.0.0', // Must match Node A's fetcher protocol
+        crdtBlockStoreBForAOutbox,
+        '/my-app/outbox-crdt-dag-sync/1.0.0',
         OutboxCrdtPayload.fromBytes,
-        dht: nodeB.dht, // Use Node B's DHT
+        dht: nodeB.dht,
       );
       final announcerBForAOutbox = GossipSubAnnouncer(
         nodeB.host,
         nodeB.pubsub,
-        nodeA.outboxCrdtId, // Subscribing to Node A's outbox topic
+        nodeA.outboxCrdtId,
       );
       final managerBForAOutbox = MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload>(
         dagFetcher: dagFetcherBForAOutbox,
@@ -253,11 +238,13 @@ void main() {
       final updateCompleter = Completer<OutboxData?>();
       
       _logger.info('Node A (${nodeA.actor.did}) publishing note to its outbox...');
-      final publishResult = await nodeA.publishNoteToOutbox('Hello from Node A outbox!');
-      final CID publishedActivityCid = publishResult.activityCid; // Initialize immediately
-      _logger.info('Node A published activity ${publishedActivityCid}. Current outbox size: ${(await nodeA.outboxManager.getState())?.activityCids.length}');
+      final originalNoteContent = 'Hello from Node A outbox, to be fetched by Bitswap!';
+      final publishResult = await nodeA.publishNoteToOutbox(originalNoteContent);
+      final CID publishedActivityCid = publishResult.activityCid;
+      final CID originalNoteCid = publishResult.noteCid; // Get the original Note's CID
 
-      // Now that publishedActivityCid is known, set up the listener
+      _logger.info('Node A published activity ${publishedActivityCid} (for note ${originalNoteCid}). Current outbox size: ${(await nodeA.outboxManager.getState())?.activityCids.length}');
+
       final subscriptionB = managerBForAOutbox.onStateChanged.listen((newOutboxState) {
         _logger.info('Node B (syncing A outbox): Received state update. Activity CIDs: ${newOutboxState?.activityCids.length}');
         if (newOutboxState != null && newOutboxState.activityCids.contains(publishedActivityCid)) {
@@ -267,8 +254,6 @@ void main() {
         }
       });
 
-      // Check if the state was already received due to quick propagation
-      // (manager might have processed it while we were setting up the listener)
       final initialCheckState = await managerBForAOutbox.getState();
       if (initialCheckState != null && initialCheckState.activityCids.contains(publishedActivityCid)) {
         if (!updateCompleter.isCompleted) {
@@ -278,7 +263,7 @@ void main() {
       }
 
       try {
-        _logger.info('Waiting for Node B to receive the outbox update from Node A (or confirm it was already received)...');
+        _logger.info('Waiting for Node B to receive the outbox update from Node A...');
         final receivedStateOnB = await updateCompleter.future.timeout(Duration(seconds: 45),
           onTimeout: () {
             _logger.warning('Timeout waiting for Node B to receive outbox update.');
@@ -286,15 +271,46 @@ void main() {
           });
 
         expect(receivedStateOnB, isNotNull, reason: 'Node B should have received an outbox update for Node A.');
-        // The managerBForAOutbox is subscribed to nodeA.outboxCrdtId, so if data is received, it's for the correct CRDT.
-        // The OutboxData itself doesn't store the top-level CRDT ID.
         expect(receivedStateOnB?.activityCids, contains(publishedActivityCid), reason: 'Node B outbox should contain the published activity CID.');
         
-        _logger.info('Test PASSED: Outbox update successfully replicated from Node A to Node B.');
+        _logger.info('Node B received CRDT update for activity $publishedActivityCid. Now fetching via Bitswap...');
+
+        // 1. Node B fetches the CreateActivity block
+        _logger.info('Node B: Attempting to fetch CreateActivity block $publishedActivityCid from Node A via Bitswap...');
+        final activityBlockBytes = await nodeB.bitswap.getBlock(publishedActivityCid);
+        expect(activityBlockBytes, isNotNull, reason: 'Node B should fetch CreateActivity block via Bitswap.');
+        _logger.info('Node B: Successfully fetched CreateActivity block ($publishedActivityCid) bytes (length: ${activityBlockBytes?.length}).');
+
+        // 2. Node B deserializes the CreateActivity
+        final decodedActivityCbor = cbor.decode(activityBlockBytes!) as CborMap;
+        final fetchedActivity = CreateActivity.fromCborMap(decodedActivityCbor);
+        expect(fetchedActivity, isA<CreateActivity>());
+        expect(fetchedActivity.actor, nodeA.actor.did, reason: 'Fetched activity actor DID should match Node A.');
+        expect(fetchedActivity.object, originalNoteCid, reason: 'Fetched activity object CID should match original Note CID.');
+        _logger.info('Node B: Successfully deserialized CreateActivity. Object (Note) CID: ${fetchedActivity.object}');
+
+        // 3. Node B extracts the Note's CID and fetches the Note block
+        final noteCidFromActivity = fetchedActivity.object;
+        _logger.info('Node B: Attempting to fetch Note block $noteCidFromActivity from Node A via Bitswap...');
+        final noteBlockBytes = await nodeB.bitswap.getBlock(noteCidFromActivity);
+        expect(noteBlockBytes, isNotNull, reason: 'Node B should fetch Note block via Bitswap.');
+        _logger.info('Node B: Successfully fetched Note block ($noteCidFromActivity) bytes (length: ${noteBlockBytes?.length}).');
+        
+        // 4. Node B deserializes the Note
+        final decodedNoteCbor = cbor.decode(noteBlockBytes!) as CborMap;
+        final fetchedNote = Note.fromCborMap(decodedNoteCbor);
+        expect(fetchedNote, isA<Note>());
+        _logger.info('Node B: Successfully deserialized Note.');
+
+        // 5. Node B verifies the content of the Note
+        expect(fetchedNote.content, originalNoteContent, reason: 'Fetched Note content should match the original content.');
+        _logger.info('Node B: Successfully verified fetched Note content: "${fetchedNote.content}"');
+        
+        _logger.info('Test PASSED: Outbox update successfully replicated, and content fetched and verified via Bitswap.');
 
       } catch (e, s) {
-        _logger.severe('Test FAILED: Error during outbox replication or assertion.', e, s);
-        fail('Outbox replication test failed: $e');
+        _logger.severe('Test FAILED: Error during outbox replication or Bitswap fetch.', e, s);
+        fail('Outbox replication and Bitswap fetch test failed: $e');
       } finally {
         await subscriptionB.cancel();
         await managerBForAOutbox.close();

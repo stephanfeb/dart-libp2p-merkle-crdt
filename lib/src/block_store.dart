@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dart_cid/dart_cid.dart' show CID;
+
+import 'bitswap/bitswap.dart';
 // Import the IBlockStore interface from the bitswap package
 // Assuming the bitswap package will be available under 'package:dart_libp2p_bitswap/dart_libp2p_bitswap.dart'
 // or similar, once 'pub get' is run.
-import 'package:dart_libp2p_bitswap/dart_libp2p_bitswap.dart' show IBlockStore; 
 
 class InMemoryBlockStore implements IBlockStore {
   final Map<String, Uint8List> _store = {};
