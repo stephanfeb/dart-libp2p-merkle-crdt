@@ -48,6 +48,7 @@ void main() {
       expect(result.note.content, equals(noteContent));
       expect(result.note.published, isA<DateTime>());
       expect(result.note.context, equals(activityStreamsContext)); // Assuming default context
+      expect(result.noteCid.codec, equals(0x71), reason: 'Note CID should use dag-cbor codec.');
     });
 
     test('createAndSignActivity should return a signed CreateActivity and its CID', () async {
@@ -65,6 +66,7 @@ void main() {
       final createActivity = activityResult.activity as CreateActivity;
       expect(createActivity.actor, equals(actor.did));
       expect(createActivity.object.toString(), equals(noteCid.toString())); // Compare CID strings
+      expect(activityResult.activityCid.codec, equals(0x71), reason: 'Activity CID should use dag-cbor codec.');
       expect(createActivity.published, isA<DateTime>());
       expect(createActivity.type, equals('Create'));
 

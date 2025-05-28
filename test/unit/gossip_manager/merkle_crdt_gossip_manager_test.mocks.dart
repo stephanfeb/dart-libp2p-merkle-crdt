@@ -3,21 +3,23 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i6;
-import 'dart:collection' as _i9;
+import 'dart:async' as _i7;
+import 'dart:collection' as _i10;
+import 'dart:typed_data' as _i14;
 
 import 'package:dart_cid/dart_cid.dart' as _i5;
+import 'package:dart_libp2p/core/peer/peer_id.dart' as _i6;
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/gossipsub_announcer.dart'
-    as _i13;
+    as _i15;
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/p2p_stream_dag_fetcher.dart'
-    as _i12;
-import 'package:merkledag/merkledag.dart' as _i8;
+    as _i13;
+import 'package:merkledag/merkledag.dart' as _i9;
 import 'package:merkledag/src/broadcaster.dart' as _i2;
-import 'package:merkledag/src/crdt_payload.dart' as _i7;
+import 'package:merkledag/src/crdt_payload.dart' as _i8;
 import 'package:merkledag/src/dag_syncer.dart' as _i4;
-import 'package:merkledag/src/merkle_node.dart' as _i10;
+import 'package:merkledag/src/merkle_node.dart' as _i11;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i11;
+import 'package:mockito/src/dummies.dart' as _i12;
 import 'package:synchronized/synchronized.dart' as _i3;
 
 // ignore_for_file: type=lint
@@ -74,8 +76,18 @@ class _FakeCID_3 extends _i1.SmartFake implements _i5.CID {
         );
 }
 
-class _FakeFuture_4<T1> extends _i1.SmartFake implements _i6.Future<T1> {
-  _FakeFuture_4(
+class _FakePeerId_4 extends _i1.SmartFake implements _i6.PeerId {
+  _FakePeerId_4(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeFuture_5<T1> extends _i1.SmartFake implements _i7.Future<T1> {
+  _FakeFuture_5(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -87,8 +99,8 @@ class _FakeFuture_4<T1> extends _i1.SmartFake implements _i6.Future<T1> {
 /// A class which mocks [MerkleCRDT].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
-    implements _i8.MerkleCRDT<V, P> {
+class MockMerkleCRDT<V, P extends _i8.CRDTPayload<V>> extends _i1.Mock
+    implements _i9.MerkleCRDT<V, P> {
   MockMerkleCRDT() {
     _i1.throwOnMissingStub(this);
   }
@@ -136,15 +148,15 @@ class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
       );
 
   @override
-  _i9.LinkedHashMap<String, _i10.MerkleNode<P>> get instanceNodeCache =>
+  _i10.LinkedHashMap<String, _i11.MerkleNode<P>> get instanceNodeCache =>
       (super.noSuchMethod(
         Invocation.getter(#instanceNodeCache),
         returnValue:
-            _i11.dummyValue<_i9.LinkedHashMap<String, _i10.MerkleNode<P>>>(
+            _i12.dummyValue<_i10.LinkedHashMap<String, _i11.MerkleNode<P>>>(
           this,
           Invocation.getter(#instanceNodeCache),
         ),
-      ) as _i9.LinkedHashMap<String, _i10.MerkleNode<P>>);
+      ) as _i10.LinkedHashMap<String, _i11.MerkleNode<P>>);
 
   @override
   int get maxCacheSize => (super.noSuchMethod(
@@ -159,28 +171,28 @@ class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
       ) as Set<_i5.CID>);
 
   @override
-  _i6.Future<_i5.CID> add(P? payload) => (super.noSuchMethod(
+  _i7.Future<_i5.CID> add(P? payload) => (super.noSuchMethod(
         Invocation.method(
           #add,
           [payload],
         ),
-        returnValue: _i6.Future<_i5.CID>.value(_FakeCID_3(
+        returnValue: _i7.Future<_i5.CID>.value(_FakeCID_3(
           this,
           Invocation.method(
             #add,
             [payload],
           ),
         )),
-      ) as _i6.Future<_i5.CID>);
+      ) as _i7.Future<_i5.CID>);
 
   @override
-  _i6.Future<P?> getState() => (super.noSuchMethod(
+  _i7.Future<P?> getState() => (super.noSuchMethod(
         Invocation.method(
           #getState,
           [],
         ),
-        returnValue: _i6.Future<P?>.value(),
-      ) as _i6.Future<P?>);
+        returnValue: _i7.Future<P?>.value(),
+      ) as _i7.Future<P?>);
 
   @override
   void setRootsForTesting(Set<_i5.CID>? newRoots) => super.noSuchMethod(
@@ -192,32 +204,32 @@ class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
       );
 
   @override
-  _i6.Future<_i10.MerkleNode<P>?> getNode(_i5.CID? cid) => (super.noSuchMethod(
+  _i7.Future<_i11.MerkleNode<P>?> getNode(_i5.CID? cid) => (super.noSuchMethod(
         Invocation.method(
           #getNode,
           [cid],
         ),
-        returnValue: _i6.Future<_i10.MerkleNode<P>?>.value(),
-      ) as _i6.Future<_i10.MerkleNode<P>?>);
+        returnValue: _i7.Future<_i11.MerkleNode<P>?>.value(),
+      ) as _i7.Future<_i11.MerkleNode<P>?>);
 
   @override
-  _i6.Future<bool> isIncluded(_i5.CID? cid) => (super.noSuchMethod(
+  _i7.Future<bool> isIncluded(_i5.CID? cid) => (super.noSuchMethod(
         Invocation.method(
           #isIncluded,
           [cid],
         ),
-        returnValue: _i6.Future<bool>.value(false),
-      ) as _i6.Future<bool>);
+        returnValue: _i7.Future<bool>.value(false),
+      ) as _i7.Future<bool>);
 
   @override
-  _i6.Future<bool> isCurrentDAGIncludedIn(_i5.CID? remoteCid) =>
+  _i7.Future<bool> isCurrentDAGIncludedIn(_i5.CID? remoteCid) =>
       (super.noSuchMethod(
         Invocation.method(
           #isCurrentDAGIncludedIn,
           [remoteCid],
         ),
-        returnValue: _i6.Future<bool>.value(false),
-      ) as _i6.Future<bool>);
+        returnValue: _i7.Future<bool>.value(false),
+      ) as _i7.Future<bool>);
 
   @override
   bool isDescendant(
@@ -236,7 +248,7 @@ class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
       ) as bool);
 
   @override
-  _i6.Future<bool> isDescendantOf(
+  _i7.Future<bool> isDescendantOf(
     _i5.CID? descendantCid,
     _i5.CID? ancestorCid,
   ) =>
@@ -248,102 +260,120 @@ class MockMerkleCRDT<V, P extends _i7.CRDTPayload<V>> extends _i1.Mock
             ancestorCid,
           ],
         ),
-        returnValue: _i6.Future<bool>.value(false),
-      ) as _i6.Future<bool>);
+        returnValue: _i7.Future<bool>.value(false),
+      ) as _i7.Future<bool>);
 
   @override
-  _i6.Future<bool> commonMergeLogic(_i5.CID? remoteCid) => (super.noSuchMethod(
+  _i7.Future<bool> commonMergeLogic(_i5.CID? remoteCid) => (super.noSuchMethod(
         Invocation.method(
           #commonMergeLogic,
           [remoteCid],
         ),
-        returnValue: _i6.Future<bool>.value(false),
-      ) as _i6.Future<bool>);
+        returnValue: _i7.Future<bool>.value(false),
+      ) as _i7.Future<bool>);
 }
 
 /// A class which mocks [P2PStreamDagFetcher].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockP2PStreamDagFetcher<P extends _i7.CRDTPayload<V>, V> extends _i1.Mock
-    implements _i12.P2PStreamDagFetcher<P, V> {
+class MockP2PStreamDagFetcher<P extends _i8.CRDTPayload<V>, V> extends _i1.Mock
+    implements _i13.P2PStreamDagFetcher<P, V> {
   MockP2PStreamDagFetcher() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i6.Future<_i10.MerkleNode<P>?> get(_i5.CID? cid) => (super.noSuchMethod(
+  P Function(_i14.Uint8List) get payloadFactory => (super.noSuchMethod(
+        Invocation.getter(#payloadFactory),
+        returnValue: (_i14.Uint8List payloadBytes) => _i12.dummyValue<P>(
+          this,
+          Invocation.getter(#payloadFactory),
+        ),
+      ) as P Function(_i14.Uint8List));
+
+  @override
+  _i6.PeerId get peerId => (super.noSuchMethod(
+        Invocation.getter(#peerId),
+        returnValue: _FakePeerId_4(
+          this,
+          Invocation.getter(#peerId),
+        ),
+      ) as _i6.PeerId);
+
+  @override
+  _i7.Future<_i11.MerkleNode<P>?> get(_i5.CID? cid) => (super.noSuchMethod(
         Invocation.method(
           #get,
           [cid],
         ),
-        returnValue: _i6.Future<_i10.MerkleNode<P>?>.value(),
-      ) as _i6.Future<_i10.MerkleNode<P>?>);
+        returnValue: _i7.Future<_i11.MerkleNode<P>?>.value(),
+      ) as _i7.Future<_i11.MerkleNode<P>?>);
 
   @override
-  _i6.Future<void> put(_i10.MerkleNode<P>? node) => (super.noSuchMethod(
+  _i7.Future<void> put(_i11.MerkleNode<P>? node) => (super.noSuchMethod(
         Invocation.method(
           #put,
           [node],
         ),
-        returnValue: _i6.Future<void>.value(),
-        returnValueForMissingStub: _i6.Future<void>.value(),
-      ) as _i6.Future<void>);
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
 
   @override
-  _i6.Future<void> close() => (super.noSuchMethod(
+  _i7.Future<void> close() => (super.noSuchMethod(
         Invocation.method(
           #close,
           [],
         ),
-        returnValue: _i6.Future<void>.value(),
-        returnValueForMissingStub: _i6.Future<void>.value(),
-      ) as _i6.Future<void>);
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
 }
 
 /// A class which mocks [GossipSubAnnouncer].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockGossipSubAnnouncer extends _i1.Mock
-    implements _i13.GossipSubAnnouncer {
+    implements _i15.GossipSubAnnouncer {
   MockGossipSubAnnouncer() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i6.Future<void> broadcast(String? cidString) => (super.noSuchMethod(
+  _i7.Future<void> broadcast(String? cidString) => (super.noSuchMethod(
         Invocation.method(
           #broadcast,
           [cidString],
         ),
-        returnValue: _i6.Future<void>.value(),
-        returnValueForMissingStub: _i6.Future<void>.value(),
-      ) as _i6.Future<void>);
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
 
   @override
-  _i6.Stream<String> subscribe() => (super.noSuchMethod(
+  _i7.Stream<String> subscribe() => (super.noSuchMethod(
         Invocation.method(
           #subscribe,
           [],
         ),
-        returnValue: _i6.Stream<String>.empty(),
-      ) as _i6.Stream<String>);
+        returnValue: _i7.Stream<String>.empty(),
+      ) as _i7.Stream<String>);
 
   @override
-  _i6.Future<void> close() => (super.noSuchMethod(
+  _i7.Future<void> close() => (super.noSuchMethod(
         Invocation.method(
           #close,
           [],
         ),
-        returnValue: _i6.Future<void>.value(),
-        returnValueForMissingStub: _i6.Future<void>.value(),
-      ) as _i6.Future<void>);
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
 }
 
 /// A class which mocks [StreamSubscription].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockStreamSubscription<T> extends _i1.Mock
-    implements _i6.StreamSubscription<T> {
+    implements _i7.StreamSubscription<T> {
   MockStreamSubscription() {
     _i1.throwOnMissingStub(this);
   }
@@ -355,14 +385,14 @@ class MockStreamSubscription<T> extends _i1.Mock
       ) as bool);
 
   @override
-  _i6.Future<void> cancel() => (super.noSuchMethod(
+  _i7.Future<void> cancel() => (super.noSuchMethod(
         Invocation.method(
           #cancel,
           [],
         ),
-        returnValue: _i6.Future<void>.value(),
-        returnValueForMissingStub: _i6.Future<void>.value(),
-      ) as _i6.Future<void>);
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
 
   @override
   void onData(void Function(T)? handleData) => super.noSuchMethod(
@@ -392,7 +422,7 @@ class MockStreamSubscription<T> extends _i1.Mock
       );
 
   @override
-  void pause([_i6.Future<void>? resumeSignal]) => super.noSuchMethod(
+  void pause([_i7.Future<void>? resumeSignal]) => super.noSuchMethod(
         Invocation.method(
           #pause,
           [resumeSignal],
@@ -410,27 +440,27 @@ class MockStreamSubscription<T> extends _i1.Mock
       );
 
   @override
-  _i6.Future<E> asFuture<E>([E? futureValue]) => (super.noSuchMethod(
+  _i7.Future<E> asFuture<E>([E? futureValue]) => (super.noSuchMethod(
         Invocation.method(
           #asFuture,
           [futureValue],
         ),
-        returnValue: _i11.ifNotNull(
-              _i11.dummyValueOrNull<E>(
+        returnValue: _i12.ifNotNull(
+              _i12.dummyValueOrNull<E>(
                 this,
                 Invocation.method(
                   #asFuture,
                   [futureValue],
                 ),
               ),
-              (E v) => _i6.Future<E>.value(v),
+              (E v) => _i7.Future<E>.value(v),
             ) ??
-            _FakeFuture_4<E>(
+            _FakeFuture_5<E>(
               this,
               Invocation.method(
                 #asFuture,
                 [futureValue],
               ),
             ),
-      ) as _i6.Future<E>);
+      ) as _i7.Future<E>);
 }

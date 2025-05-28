@@ -2,6 +2,7 @@ import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
 
 import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:cbor/cbor.dart';
 // We'll need a way to get a CID from this data.
 // This typically involves using something like MerkleNode from the 'merkledag' package,
 // which would take the canonical bytes of this note's representation.
@@ -63,4 +64,13 @@ class Note {
   // Future<CID> getCid(Future<CID> Function(Uint8List) cidFunc) async {
   //   return await cidFunc(toCanonicalBytes());
   // }
+
+  CborMap toCborMap() {
+    return CborMap({
+      CborString('@context'): CborString(context),
+      CborString('type'): CborString(Note.type),
+      CborString('content'): CborString(content),
+      CborString('published'): CborString(published.toIso8601String()),
+    });
+  }
 }

@@ -9,6 +9,7 @@ import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
+import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId; // Import PeerId
 
 // Mocks
 @GenerateMocks([
@@ -67,9 +68,20 @@ void main() {
     final updatedPayload = TestPayload('updated_state');
     final anotherPayload = TestPayload('another_state');
 
-    setUp(() {
+    setUp(() async { // Make setUp async
       mockDagFetcher = MockP2PStreamDagFetcher<TestPayload, String>();
       mockAnnouncer = MockGossipSubAnnouncer();
+      
+      // Create the dummy PeerId first.
+      // If PeerId.fromString itself throws or returns null, this is the root issue.
+      final PeerId dummyPeerId = PeerId.fromString('12D3KooWHMMXk2rWfW8s9n4MXm9G92KXY4zuzZp2p6G8g5p7Y3jJ');
+
+      // Stubbing peerId for mockDagFetcher
+      // This is the standard way to stub a getter.
+      when(mockDagFetcher.peerId).thenReturn(dummyPeerId);
+      
+      // Stubbing dht getter for mockDagFetcher to prevent MissingStubError
+      when(mockDagFetcher.dht).thenReturn(null); 
       
       // We can't directly inject a mockMerkleCrdt if the manager creates it internally.
       // So, we will test by interacting with the manager and verifying its behavior,

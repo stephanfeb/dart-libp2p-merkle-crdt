@@ -2,6 +2,7 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/note.dart';
+import 'package:cbor/cbor.dart'; // Import for CborValue types
 
 void main() {
   group('Note IPLD Tests', () {
@@ -100,5 +101,24 @@ void main() {
        expect(note.context, equals(activityStreamsContext));
     });
 
+    test('toCborMap produces correct CborMap structure', () {
+      final publishedTime = DateTime.utc(2023, 5, 15, 12, 30, 0);
+      const noteContent = 'Test CBOR content';
+      const customContext = 'https://example.com/custom-cbor-context';
+
+      final note = Note(
+        content: noteContent,
+        published: publishedTime,
+        context: customContext,
+      );
+      final cborMap = note.toCborMap();
+
+      expect(cborMap, isA<CborMap>());
+      // Access CborMap elements using operator[]
+      expect(cborMap[CborString('@context')], equals(CborString(customContext)));
+      expect(cborMap[CborString('type')], equals(CborString(Note.type)));
+      expect(cborMap[CborString('content')], equals(CborString(noteContent)));
+      expect(cborMap[CborString('published')], equals(CborString(publishedTime.toIso8601String())));
+    });
   });
 }

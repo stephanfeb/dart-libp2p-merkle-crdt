@@ -37,6 +37,7 @@ dependencies:
   clock: ^1.1.2
   pinenacl: ^0.6.0
   multibase: ^1.0.0
+  cbor: ^5.1.0
 
 dev_dependencies:
   lints: ^4.0.0

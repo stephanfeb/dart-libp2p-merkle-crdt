@@ -1,8 +1,10 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
+import 'dart:convert' show jsonEncode; // Keep for toCanonicalBytesForSigning
 
 import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:pinenacl/api.dart' show SignatureBase; // For signature type
+import 'package:cbor/cbor.dart';
 
 // Re-export or define context if not already globally available
 const activityStreamsContext = 'https://www.w3.org/ns/activitystreams';
@@ -59,17 +61,48 @@ class CreateActivity implements Activity {
   // Key order should be canonical.
   @override
   Uint8List toCanonicalBytesForSigning() {
-    final map = {
-      '@context': context,
-      'type': type,
-      'actor': actor,
-      'object': object.toString(),
-      'published': published.toIso8601String(),
+    // This should produce the CBOR representation of the activity *without* the signature.
+    // It should match the data that the CID is generated from (excluding signature).
+    final Map<CborValue, CborValue> dataForSigning = {
+      CborString('@context'): CborString(context),
+      CborString('type'): CborString(type),
+      CborString('actor'): CborString(actor),
+      CborString('object'): CborBytes(object.toBytes(), tags: [42]), // dag-cbor link
+      CborString('published'): CborString(published.toIso8601String()),
     };
-    // Ensure consistent key order for canonical representation
-    final sortedMap = Map.fromEntries(
-        map.entries.toList()..sort((e1, e2) => e1.key.compareTo(e2.key)));
-    return Uint8List.fromList(jsonEncode(sortedMap).codeUnits);
+    // Note: Canonical CBOR requires map keys to be sorted.
+    // The CborMap constructor does not guarantee key sorting during encoding by default.
+    // However, the `cbor.encode` function with `canonical: true` (if available and used in Actor)
+    // would handle this. For now, we construct the map.
+    // If actor.dart's cbor.encode doesn't use canonical mode, this might not be strictly canonical.
+    // For signing, consistency is key. As long as what's signed is what's verified.
+    final encodedBytes = cbor.encode(CborMap(dataForSigning));
+    // Ensure it's Uint8List if cbor.encode returns List<int> in this environment
+    if (encodedBytes is Uint8List) {
+      return encodedBytes;
+    } else {
+      return Uint8List.fromList(encodedBytes);
+    }
+  }
+
+  CborMap toCborMap() {
+    // final CborBytes cidAsCborBytes = CborBytes(object.toBytes()); // Unused
+    // Explicitly cast to CborValue to try and appease the analyzer // Comment related to old CborTag approach
+    final Map<CborValue, CborValue> cborData = {
+      CborString('@context'): CborString(context),
+      CborString('type'): CborString(type),
+      CborString('actor'): CborString(actor),
+      CborString('object'): CborBytes(object.toBytes(), tags: [42]),
+      CborString('published'): CborString(published.toIso8601String()),
+    };
+    if (signature != null) {
+      // Assuming signature is Map<String, String> or Map<String, dynamic> with string values
+      final sigMap = signature!;
+      final cborSigMapEntries = sigMap.entries.map((entry) =>
+          MapEntry(CborString(entry.key), CborString(entry.value.toString())));
+      cborData[CborString('signature')] = CborMap(Map.fromEntries(cborSigMapEntries));
+    }
+    return CborMap(cborData);
   }
 
   factory CreateActivity.fromJson(Map<String, dynamic> json) {

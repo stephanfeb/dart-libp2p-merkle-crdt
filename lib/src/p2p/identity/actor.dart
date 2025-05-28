@@ -1,6 +1,7 @@
 import 'dart:typed_data';
-import 'dart:convert' show base64, jsonEncode, utf8; // For _toBase64Url, jsonEncode, utf8
+import 'dart:convert' show base64, utf8; // For _toBase64Url, utf8
 import 'package:crypto/crypto.dart' show sha256;
+import 'package:cbor/cbor.dart'; // Removed 'as cbor'
 import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:pinenacl/api/signatures.dart'; // For SignatureBase typedef
 import 'package:pinenacl/api.dart'; // For other API elements, potentially Signature class
@@ -88,11 +89,12 @@ class Actor {
   Future<({Note note, CID noteCid})> createNote(String content) async {
     final note = Note(content: content, published: DateTime.now().toUtc());
     
-    // Serialize to canonical bytes (e.g., JSON string)
-    final noteJson = note.toJson();
-    final noteBytes = Uint8List.fromList(utf8.encode(jsonEncode(noteJson)));
+    // Serialize to canonical bytes (CBOR)
+    final noteCborValue = note.toCborMap(); // Use toCborMap()
+    // Use the global cbor instance's encode method
+    final noteBytes = cbor.encode(noteCborValue); 
     
-    // Calculate SHA256 hash for CID (v1, json codec for content type)
+    // Calculate SHA256 hash for CID (v1, dag-cbor codec for content type)
     final digest = sha256.convert(noteBytes);
     final digestBytes = Uint8List.fromList(digest.bytes);
     
@@ -101,8 +103,8 @@ class Actor {
     final multihashBytes = Uint8List.fromList([0x12, 32, ...digestBytes]);
     
     // Create CID: CID(version, ipld_content_type_codec, full_multihash_bytes)
-    // 0x0129 is the IPLD codec for JSON
-    final noteCid = CID(1, 0x0129, multihashBytes);
+    // 0x71 is the IPLD codec for CBOR (dag-cbor)
+    final noteCid = CID(1, 0x71, multihashBytes);
 
     return (note: note, noteCid: noteCid);
   }
@@ -136,8 +138,10 @@ class Actor {
     };
     
     // Calculate CID of the signed activity
-    final activityJson = activity.toJson();
-    final activityBytes = Uint8List.fromList(utf8.encode(jsonEncode(activityJson)));
+    // Cast to CreateActivity to access toCborMap, assuming activity is CreateActivity
+    final activityCborValue = (activity as CreateActivity).toCborMap(); // Use toCborMap()
+    // Use the global cbor instance's encode method
+    final activityBytes = cbor.encode(activityCborValue);
     final digest = sha256.convert(activityBytes);
     final digestBytes = Uint8List.fromList(digest.bytes);
 
@@ -146,8 +150,8 @@ class Actor {
     final multihashBytes = Uint8List.fromList([0x12, 32, ...digestBytes]);
 
     // Create CID: CID(version, ipld_content_type_codec, full_multihash_bytes)
-    // 0x0129 is the IPLD codec for JSON
-    final activityCid = CID(1, 0x0129, multihashBytes);
+    // 0x71 is the IPLD codec for CBOR (dag-cbor)
+    final activityCid = CID(1, 0x71, multihashBytes);
 
     return (activity: activity, activityCid: activityCid);
   }

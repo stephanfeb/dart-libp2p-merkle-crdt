@@ -24,7 +24,8 @@ import 'package:dart_libp2p_merkle_crdt/src/block_store.dart' as raw_block_store
 
 // Bitswap imports
 import 'package:dart_libp2p_bitswap/dart_libp2p_bitswap.dart' show Bitswap, IBlockStore, WantManager;
-import 'dart:convert' show jsonEncode, utf8; // For serializing objects to store
+// import 'dart:convert' show jsonEncode, utf8; // jsonEncode no longer needed for block serialization here
+import 'package:cbor/cbor.dart'; // For cbor.encode
 
 import '../../real_net_stack.dart' show Libp2pNode, createLibp2pNode;
 import '../../test_utils.dart'; // For connectPeers
@@ -144,14 +145,18 @@ class _OutboxNode {
     final noteResult = await actor.createNote(content);
     final activityResult = await actor.createAndSignActivity(objectCid: noteResult.noteCid);
     
-    // Store the Note and Activity blocks in the general blockStore for Bitswap
-    final noteBytes = Uint8List.fromList(utf8.encode(jsonEncode(noteResult.note.toJson())));
-    await blockStore.put(noteResult.noteCid, noteBytes);
-    _logger.info('[${actor.did.substring(8,14)}] Stored Note ${noteResult.noteCid} in blockStore.');
+    // Store the Note and Activity blocks in the general blockStore for Bitswap using CBOR
+    final noteCborValue = noteResult.note.toCborMap();
+    final noteBytesEncoded = cbor.encode(noteCborValue);
+    final noteBytesForStore = noteBytesEncoded is Uint8List ? noteBytesEncoded : Uint8List.fromList(noteBytesEncoded);
+    await blockStore.put(noteResult.noteCid, noteBytesForStore);
+    _logger.info('[${actor.did.substring(8,14)}] Stored Note ${noteResult.noteCid} (CBOR) in blockStore.');
 
-    final activityBytes = Uint8List.fromList(utf8.encode(jsonEncode(activityResult.activity.toJson())));
-    await blockStore.put(activityResult.activityCid, activityBytes);
-     _logger.info('[${actor.did.substring(8,14)}] Stored Activity ${activityResult.activityCid} in blockStore.');
+    final activityCborValue = (activityResult.activity as CreateActivity).toCborMap();
+    final activityBytesEncoded = cbor.encode(activityCborValue);
+    final activityBytesForStore = activityBytesEncoded is Uint8List ? activityBytesEncoded : Uint8List.fromList(activityBytesEncoded);
+    await blockStore.put(activityResult.activityCid, activityBytesForStore);
+    _logger.info('[${actor.did.substring(8,14)}] Stored Activity ${activityResult.activityCid} (CBOR) in blockStore.');
 
     // Fetch current state (OutboxData) to build upon for the outbox CRDT
     final currentOutboxData = await outboxManager.getState();
