@@ -22,29 +22,29 @@ This document outlines a phased approach to building a set of P2P social primiti
     *   [x] Define Profile CRDT structure (LWW-Map or JSON-CRDT).
         *   Required fields: `id` (DID), `type` ("Person", "Service", etc.), `publicKeyJwk`.
         *   Recommended fields: `name`, `preferredUsername`, `summary`, `icon` (CID to image), `image` (CID to image).
-    *   [ ] Implement actor ability to create and update their Profile CRDT.
-    *   [ ] Mechanism for Profile CRDT head to be gossiped (e.g., on topic `profiles/<actor_did>`).
-    *   [ ] Mechanism for clients to discover and sync an actor's Profile CRDT.
+    *   [x] Implement actor ability to create and update their Profile CRDT.
+    *   [x] Mechanism for Profile CRDT head to be gossiped (e.g., on topic `profiles/<actor_did>`).
+    *   [x] Mechanism for clients to discover and sync an actor's Profile CRDT.
 *   **[x] Content Object (`Note`) - IPLD**
     *   [x] Define IPLD schema for a simple `Note` (e.g., `{"@context": "...", "type": "Note", "content": "...", "published": "timestamp"}`).
-    *   [ ] Actors can create `Note` IPLD blocks, resulting in a CID.
+    *   [x] Actors can create `Note` IPLD blocks, resulting in a CID.
 *   **[x] `Create` Activity - IPLD**
     *   [x] Define IPLD schema for `Create` activity (`{"@context": "...", "type": "Create", "actor": "actor_did", "object": "note_cid", "published": "timestamp"}`).
-    *   [ ] Activities are signed by the actor's private key.
-    *   [ ] Actors can create `Create` activity IPLD blocks, resulting in a CID.
+    *   [x] Activities are signed by the actor's private key.
+    *   [x] Actors can create `Create` activity IPLD blocks, resulting in a CID.
 *   **[x] `outbox` CRDT (Append-only Log)**
     *   [x] Define `outbox` as an append-only log CRDT storing CIDs of activities.
-    *   [ ] Implement actor ability to append new activity CIDs to their `outbox`.
-    *   [ ] Mechanism for `outbox` CRDT head to be gossiped (e.g., on topic `outboxes/<actor_did>` or discoverable via Profile CRDT).
-    *   [ ] Mechanism for clients to discover and sync an actor's `outbox`.
-*   **[ ] Bitswap Integration & Content Availability**
-    *   [ ] Client ability to request IPLD blocks (Activities, Notes) by CID via Bitswap.
-    *   [ ] Actors automatically "pin" (make available via Bitswap) their own created content and activities.
-*   **[ ] Basic Client Functionality (Proof of Concept)**
-    *   [ ] Create an actor profile.
-    *   [ ] Publish a `Note` to the actor's `outbox`.
-    *   [ ] View another actor's profile.
-    *   [ ] View another actor's `outbox` and retrieve/display their `Note`s.
+    *   [x] Implement actor ability to append new activity CIDs to their `outbox`.
+    *   [x] Mechanism for `outbox` CRDT head to be gossiped (e.g., on topic `outboxes/<actor_did>` or discoverable via Profile CRDT).
+    *   [x] Mechanism for clients to discover and sync an actor's `outbox`.
+*   **[x] Bitswap Integration & Content Availability**
+    *   [x] Client ability to request IPLD blocks (Activities, Notes) by CID via Bitswap.
+    *   [x] Actors automatically "pin" (make available via Bitswap) their own created content and activities (via local BlockStore).
+*   **[x] Basic Client Functionality (Proof of Concept)**
+    *   [x] Create an actor profile.
+    *   [x] Publish a `Note` to the actor's `outbox`.
+    *   [x] View another actor's profile.
+    *   [x] View another actor's `outbox` and retrieve/display their `Note`s.
 
 ## Phase 2: Basic Social Interactions
 
