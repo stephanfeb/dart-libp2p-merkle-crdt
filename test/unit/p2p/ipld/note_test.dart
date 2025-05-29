@@ -2,6 +2,7 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/note.dart';
+import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/activity.dart' show activityStreamsContext; // Import the constant
 import 'package:cbor/cbor.dart'; // Import for CborValue types
 
 void main() {

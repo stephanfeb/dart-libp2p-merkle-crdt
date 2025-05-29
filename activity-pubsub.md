@@ -74,27 +74,27 @@ This document outlines a phased approach to building a set of P2P social primiti
 
 **Goal**: Introduce replies, content sharing (boosts), and a mechanism for content removal.
 
-*   **[ ] `Reply` Activity & `inReplyTo` - IPLD**
-    *   [ ] `Reply` content is a `Note` object (IPLD).
-    *   [ ] `Create` activity for the reply includes `inReplyTo: "original_content_cid"` property.
-    *   [ ] Reply activity is signed and added to the replier's `outbox`.
-*   **[ ] Threading & Reply Discovery (Client-Side)**
-    *   [ ] Client reconstructs conversation threads by linking `inReplyTo` properties.
-    *   [ ] Initial reply discovery: e.g., client scans outboxes of followed users for replies to current user's content.
-*   **[ ] `Announce` (Boost/Share) Activity - IPLD**
-    *   [ ] Define IPLD schema for `Announce` activity (`{"type": "Announce", "actor": "announcer_did", "object": "announced_content_cid"}`).
-    *   [ ] `Announce` activity is signed and added to the announcer's `outbox`.
-    *   [ ] Client displays announced content, attributing original author and announcer.
-*   **[ ] `Delete` Activity (Tombstoning) - IPLD**
-    *   [ ] Define IPLD schema for `Delete` activity (`{"type": "Delete", "actor": "deleter_did", "object": "content_to_delete_cid"}`).
-    *   [ ] `Delete` activity is signed and added to the actor's `outbox`.
-*   **[ ] Client Handling of `Delete`**
-    *   [ ] Client hides content associated with a `Delete` activity.
-    *   [ ] Actor's client unpins (stops serving via Bitswap) their "deleted" content.
-    *   [ ] Other clients may optionally unpin "deleted" content from their local cache.
-*   **[ ] Actor Mentions (Basic)**
-    *   [ ] Convention for `Mention` tags within `Note` content (e.g., `{"type": "Mention", "href": "mentioned_actor_did"}`).
-    *   [ ] Initial mention discovery: e.g., client-side scanning of content from followed users.
+*   **[x] `Reply` Activity & `inReplyTo` - IPLD**
+    *   [x] `Reply` content is a `Note` object (IPLD).
+    *   [x] `Create` activity for the reply includes `inReplyTo: "original_content_cid"` property.
+    *   [x] Reply activity is signed and added to the replier's `outbox`.
+*   **[x] Threading & Reply Discovery (Client-Side)**
+    *   [x] Client reconstructs conversation threads by linking `inReplyTo` properties.
+    *   [x] Initial reply discovery: e.g., client scans outboxes of followed users for replies to current user's content.
+*   **[x] `Announce` (Boost/Share) Activity - IPLD**
+    *   [x] Define IPLD schema for `Announce` activity (`{"type": "Announce", "actor": "announcer_did", "object": "announced_content_cid"}`).
+    *   [x] `Announce` activity is signed and added to the announcer's `outbox`.
+    *   [x] Client displays announced content, attributing original author and announcer.
+*   **[x] `Delete` Activity (Tombstoning) - IPLD**
+    *   [x] Define IPLD schema for `Delete` activity (`{"type": "Delete", "actor": "deleter_did", "object": "content_to_delete_cid"}`).
+    *   [x] `Delete` activity is signed and added to the actor's `outbox`.
+*   **[x] Client Handling of `Delete`**
+    *   [x] Client hides content associated with a `Delete` activity.
+    *   [x] Actor's client unpins (stops serving via Bitswap) their "deleted" content.
+    *   [x] Other clients may optionally unpin "deleted" content from their local cache.
+*   **[x] Actor Mentions (Basic)**
+    *   [x] Convention for `Mention` tags within `Note` content (e.g., `{"type": "Mention", "href": "mentioned_actor_did"}`).
+    *   [x] Initial mention discovery: e.g., client-side scanning of content from followed users.
 
 ## Phase 4: Scalability, UX Enhancements & Advanced Features (Future Roadmap)
 

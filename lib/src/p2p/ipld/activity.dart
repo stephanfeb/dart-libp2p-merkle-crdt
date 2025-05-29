@@ -1,6 +1,6 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
-import 'dart:convert' show jsonEncode; // Keep for toCanonicalBytesForSigning
+// Removed duplicate: import 'dart:convert' show jsonEncode;
 
 import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:pinenacl/api.dart' show SignatureBase; // For signature type
@@ -27,6 +27,7 @@ class CreateActivity implements Activity {
   @override
   final String actor; // DID of the actor performing the create
   final CID object; // CID of the object being created (e.g., a Note)
+  final CID? inReplyTo; // CID of the content being replied to (optional)
   @override
   final DateTime published;
   @override
@@ -37,6 +38,7 @@ class CreateActivity implements Activity {
   CreateActivity({
     required this.actor,
     required this.object,
+    this.inReplyTo,
     DateTime? published,
     this.context = activityStreamsContext,
     this.signature,
@@ -44,13 +46,16 @@ class CreateActivity implements Activity {
 
   @override
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> json = { // Explicitly type json
+    final Map<String, dynamic> json = {
       '@context': context,
       'type': type,
       'actor': actor,
       'object': object.toString(),
       'published': published.toIso8601String(),
     };
+    if (inReplyTo != null) {
+      json['inReplyTo'] = inReplyTo!.toString();
+    }
     if (signature != null) {
       json['signature'] = signature;
     }
@@ -70,6 +75,9 @@ class CreateActivity implements Activity {
       CborString('object'): CborBytes(object.toBytes(), tags: [42]), // dag-cbor link
       CborString('published'): CborString(published.toIso8601String()),
     };
+    if (inReplyTo != null) {
+      dataForSigning[CborString('inReplyTo')] = CborBytes(inReplyTo!.toBytes(), tags: [42]);
+    }
     // Note: Canonical CBOR requires map keys to be sorted.
     // The CborMap constructor does not guarantee key sorting during encoding by default.
     // However, the `cbor.encode` function with `canonical: true` (if available and used in Actor)
@@ -86,8 +94,6 @@ class CreateActivity implements Activity {
   }
 
   CborMap toCborMap() {
-    // final CborBytes cidAsCborBytes = CborBytes(object.toBytes()); // Unused
-    // Explicitly cast to CborValue to try and appease the analyzer // Comment related to old CborTag approach
     final Map<CborValue, CborValue> cborData = {
       CborString('@context'): CborString(context),
       CborString('type'): CborString(type),
@@ -95,6 +101,9 @@ class CreateActivity implements Activity {
       CborString('object'): CborBytes(object.toBytes(), tags: [42]),
       CborString('published'): CborString(published.toIso8601String()),
     };
+    if (inReplyTo != null) {
+      cborData[CborString('inReplyTo')] = CborBytes(inReplyTo!.toBytes(), tags: [42]);
+    }
     if (signature != null) {
       // Assuming signature is Map<String, String> or Map<String, dynamic> with string values
       final sigMap = signature!;
@@ -112,6 +121,9 @@ class CreateActivity implements Activity {
     return CreateActivity(
       actor: json['actor'] as String,
       object: CID.fromString(json['object'] as String),
+      inReplyTo: json.containsKey('inReplyTo') && json['inReplyTo'] != null
+          ? CID.fromString(json['inReplyTo'] as String)
+          : null,
       published: DateTime.parse(json['published'] as String),
       context: json['@context'] as String? ?? activityStreamsContext,
       signature: json['signature'] as Map<String, dynamic>?,
@@ -128,6 +140,7 @@ class CreateActivity implements Activity {
     final publishedValue = cborMap[CborString('published')] as CborString?;
     final contextValue = cborMap[CborString('@context')] as CborString?;
     final objectValue = cborMap[CborString('object')] as CborBytes?;
+    final inReplyToValue = cborMap[CborString('inReplyTo')] as CborBytes?; // Potentially null
 
     if (actorValue == null) {
       throw ArgumentError('Invalid CBOR: actor is missing.');
@@ -141,6 +154,10 @@ class CreateActivity implements Activity {
 
     // The object is a CID, stored as CborBytes with tag 42 (dag-cbor link)
     final objectCid = CID.fromBytes(Uint8List.fromList(objectValue.bytes));
+    CID? inReplyToCid;
+    if (inReplyToValue != null) {
+      inReplyToCid = CID.fromBytes(Uint8List.fromList(inReplyToValue.bytes));
+    }
 
     Map<String, dynamic>? signatureMap;
     final signatureCborMap = cborMap[CborString('signature')] as CborMap?;
@@ -165,6 +182,7 @@ class CreateActivity implements Activity {
     return CreateActivity(
       actor: actorValue.toString(),
       object: objectCid,
+      inReplyTo: inReplyToCid,
       published: DateTime.parse(publishedValue.toString()),
       context: contextValue?.toString() ?? activityStreamsContext,
       signature: signatureMap,

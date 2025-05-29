@@ -12,6 +12,8 @@ import 'package:multibase/multibase.dart'; // Corrected import path
 import '../ipld/note.dart';
 import '../ipld/activity.dart';
 import '../ipld/follow_activity.dart';
+import '../ipld/announce_activity.dart';
+import '../ipld/delete_activity.dart'; // Added DeleteActivity
 
 // Import CRDT types
 import '../crdt/following_crdt.dart';
@@ -102,8 +104,12 @@ class Actor {
   // Creates a Note object and calculates its CID.
   // For simplicity, CID is derived from SHA256 hash of its JSON representation.
   // In a real IPLD system, this would involve creating a DAG node.
-  Future<({Note note, CID noteCid})> createNote(String content) async {
-    final note = Note(content: content, published: DateTime.now().toUtc());
+  Future<({Note note, CID noteCid})> createNote(String content, {List<Mention>? tags}) async {
+    final note = Note(
+      content: content, 
+      published: DateTime.now().toUtc(),
+      tag: tags,
+    );
     
     // Serialize to canonical bytes (CBOR)
     final noteCborValue = note.toCborMap(); // Use toCborMap()
@@ -129,11 +135,13 @@ class Actor {
   // Returns the signed activity and its CID.
   Future<({Activity activity, CID activityCid})> createAndSignActivity({
     required CID objectCid, // CID of the object of the activity (e.g., a Note)
+    CID? inReplyTo, // Optional CID of the content being replied to
     // String activityType = 'Create', // Default to CreateActivity - kept for compatibility if needed, but Create is specific
   }) async {
     final activity = CreateActivity(
       actor: did,
       object: objectCid,
+      inReplyTo: inReplyTo, // Pass it here
       published: DateTime.now().toUtc(),
     );
     
@@ -228,6 +236,49 @@ class Actor {
 
   // Getter for the internal Liked CRDT payload, for testing/integration
   LikedCrdtPayload get likedCrdtPayload => _likedCrdt;
+
+  // --- Announce Functionality ---
+
+  /// Creates an AnnounceActivity, signs it, and returns the activity and its CID.
+  /// The caller is responsible for adding the activity CID to the outbox.
+  Future<({AnnounceActivity activity, CID activityCid})> announce(CID contentCid) async {
+    final activity = AnnounceActivity(
+      actor: did,
+      object: contentCid, // CID of the content being announced
+      published: DateTime.now().toUtc(),
+    );
+
+    // Use the generic signing helper, ensuring the correct CborMap conversion
+    final signedResult = await _signAndGenerateActivityCid(
+      activity, 
+      (a) => (a as AnnounceActivity).toCborMap()
+    );
+    
+    // Unlike follow/like, announce typically doesn't have its own dedicated CRDT state in the actor.
+    // It's primarily an outbox event that other clients interpret.
+
+    return (activity: signedResult.activity as AnnounceActivity, activityCid: signedResult.activityCid);
+  }
+
+  // --- Delete Functionality ---
+
+  /// Creates a DeleteActivity, signs it, and returns the activity and its CID.
+  /// The caller is responsible for adding the activity CID to the outbox.
+  /// The `contentCid` can be the CID of a Note or any other Activity.
+  Future<({DeleteActivity activity, CID activityCid})> delete(CID contentCid) async {
+    final activity = DeleteActivity(
+      actor: did,
+      object: contentCid, // CID of the content/activity to be deleted
+      published: DateTime.now().toUtc(),
+    );
+
+    final signedResult = await _signAndGenerateActivityCid(
+      activity,
+      (a) => (a as DeleteActivity).toCborMap()
+    );
+
+    return (activity: signedResult.activity as DeleteActivity, activityCid: signedResult.activityCid);
+  }
 
   // --- Outbox Functionality (basic access and modification) ---
 
