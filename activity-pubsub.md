@@ -50,25 +50,25 @@ This document outlines a phased approach to building a set of P2P social primiti
 
 **Goal**: Enable core social graph actions like following and basic engagement like liking.
 
-*   **[ ] `Follow` Activity - IPLD**
-    *   [ ] Define IPLD schema for `Follow` activity (`{"type": "Follow", "actor": "follower_did", "object": "followed_actor_did"}`).
-    *   [ ] `Follow` activity is signed and added to the follower's `outbox`.
-*   **[ ] `following` CRDT (OR-Set)**
-    *   [ ] Define `following` as an OR-Set CRDT storing DIDs of actors being followed.
-    *   [ ] Implement actor ability to add/remove DIDs from their `following` set.
-    *   [ ] Mechanism for `following` CRDT head to be gossiped/discovered.
-*   **[ ] `Like` Activity - IPLD**
-    *   [ ] Define IPLD schema for `Like` activity (`{"type": "Like", "actor": "liker_did", "object": "liked_content_cid"}`).
-    *   [ ] `Like` activity is signed and added to the liker's `outbox`.
-*   **[ ] `liked` CRDT (OR-Set)**
-    *   [ ] Define `liked` as an OR-Set CRDT storing CIDs of liked content.
-    *   [ ] Implement actor ability to add/remove CIDs from their `liked` set.
-    *   [ ] Mechanism for `liked` CRDT head to be gossiped/discovered.
-*   **[ ] Client-Side Aggregation & Feed**
-    *   [ ] Client can sync `following` set of the local user.
-    *   [ ] Client syncs `outbox` CRDTs of followed actors.
-    *   [ ] Basic chronological feed generation from aggregated outboxes.
-    *   [ ] Display liked content (e.g., on a profile or content item).
+*   **[x] `Follow` Activity - IPLD**
+    *   [x] Define IPLD schema for `Follow` activity (`{"type": "Follow", "actor": "follower_did", "object": "followed_actor_did"}`).
+    *   [x] `Follow` activity is signed and added to the follower's `outbox`.
+*   **[x] `following` CRDT (OR-Set)**
+    *   [x] Define `following` as an OR-Set CRDT storing DIDs of actors being followed.
+    *   [x] Implement actor ability to add/remove DIDs from their `following` set.
+    *   [x] Mechanism for `following` CRDT head to be gossiped/discovered.
+*   **[x] `Like` Activity - IPLD**
+    *   [x] Define IPLD schema for `Like` activity (`{"type": "Like", "actor": "liker_did", "object": "liked_content_cid"}`).
+    *   [x] `Like` activity is signed and added to the liker's `outbox`.
+*   **[x] `liked` CRDT (OR-Set)**
+    *   [x] Define `liked` as an OR-Set CRDT storing CIDs of liked content.
+    *   [x] Implement actor ability to add/remove CIDs from their `liked` set.
+    *   [x] Mechanism for `liked` CRDT head to be gossiped/discovered.
+*   **[x] Client-Side Aggregation & Feed**
+    *   [x] Client can sync `following` set of the local user.
+    *   [x] Client syncs `outbox` CRDTs of followed actors.
+    *   [x] Basic chronological feed generation from aggregated outboxes.
+    *   [x] Display liked content (e.g., on a profile or content item).
 
 ## Phase 3: Enhanced Interactions & Content Management
 

@@ -37,10 +37,10 @@ class _OutboxNode {
   late Bitswap bitswap;
   late raw_block_store.InMemoryBlockStore blockStore; // General block store for raw IPLD blocks
   
-  late InMemoryBlockStore<OutboxCrdtPayload, OutboxData> outboxCrdtBlockStore;
-  late P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData> outboxDagFetcher;
+  late InMemoryBlockStore<OutboxCrdtPayload, List<CID>> outboxCrdtBlockStore;
+  late P2PStreamDagFetcher<OutboxCrdtPayload, List<CID>> outboxDagFetcher;
   late GossipSubAnnouncer outboxAnnouncer;
-  late MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload> outboxManager;
+  late MerkleCrdtGossipManager<List<CID>, OutboxCrdtPayload> outboxManager;
   String outboxCrdtId = '';
 
   _OutboxNode();
@@ -95,8 +95,8 @@ class _OutboxNode {
       nodeNameForLogging: "$nodeName-BS", // Pass the nodeName (e.g., "NodeA-BS")
     );
 
-    helper.outboxCrdtBlockStore = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
-    helper.outboxDagFetcher = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
+    helper.outboxCrdtBlockStore = InMemoryBlockStore<OutboxCrdtPayload, List<CID>>();
+    helper.outboxDagFetcher = P2PStreamDagFetcher<OutboxCrdtPayload, List<CID>>(
       helper.host,
       helper.outboxCrdtBlockStore,
       '/my-app/outbox-crdt-dag-sync/1.0.0',
@@ -108,7 +108,7 @@ class _OutboxNode {
       helper.pubsub,
       helper.outboxCrdtId,
     );
-    helper.outboxManager = MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload>(
+    helper.outboxManager = MerkleCrdtGossipManager<List<CID>, OutboxCrdtPayload>(
       dagFetcher: helper.outboxDagFetcher,
       announcer: helper.outboxAnnouncer,
       loggerName: '$nodeName-OutboxManager-${helper.actor.did.substring(8, 14)}',
@@ -148,14 +148,14 @@ class _OutboxNode {
     
     OutboxCrdtPayload newPayload = OutboxCrdtPayload.create();
     if (currentOutboxData != null) {
-        for (final cidInLoop in currentOutboxData.activityCids) { 
-            newPayload = newPayload.append(cidInLoop); 
+        for (final cidInLoop in currentOutboxData) { // currentOutboxData is List<CID>
+            newPayload = newPayload.add(cidInLoop); 
         }
     }
-    newPayload = newPayload.append(activityResult.activityCid); 
+    newPayload = newPayload.add(activityResult.activityCid); 
 
     await outboxManager.applyLocalUpdate(newPayload);
-    _logger.info('[${actor.did.substring(8,14)}] Published activity ${activityResult.activityCid} to outbox CRDT. New payload has ${newPayload.value.activityCids.length} CIDs.');
+    _logger.info('[${actor.did.substring(8,14)}] Published activity ${activityResult.activityCid} to outbox CRDT. New payload has ${newPayload.value.length} CIDs.');
     return (note: noteResult.note, activity: activityResult.activity as CreateActivity, activityCid: activityResult.activityCid, noteCid: noteResult.noteCid);
   }
 }
@@ -215,9 +215,9 @@ void main() {
 
     test('Activity published to Node A outbox replicates to Node B, and content is fetched via Bitswap', () async {
       _logger.info('Setting up Node B to sync Node A\'s outbox (${nodeA.outboxCrdtId})');
-      final crdtBlockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, OutboxData>();
+      final crdtBlockStoreBForAOutbox = InMemoryBlockStore<OutboxCrdtPayload, List<CID>>();
       
-      final dagFetcherBForAOutbox = P2PStreamDagFetcher<OutboxCrdtPayload, OutboxData>(
+      final dagFetcherBForAOutbox = P2PStreamDagFetcher<OutboxCrdtPayload, List<CID>>(
         nodeB.host,
         crdtBlockStoreBForAOutbox,
         '/my-app/outbox-crdt-dag-sync/1.0.0',
@@ -229,13 +229,13 @@ void main() {
         nodeB.pubsub,
         nodeA.outboxCrdtId,
       );
-      final managerBForAOutbox = MerkleCrdtGossipManager<OutboxData, OutboxCrdtPayload>(
+      final managerBForAOutbox = MerkleCrdtGossipManager<List<CID>, OutboxCrdtPayload>(
         dagFetcher: dagFetcherBForAOutbox,
         announcer: announcerBForAOutbox,
         loggerName: 'NodeB-SyncingOutbox-${nodeA.actor.did.substring(8, 14)}',
       );
 
-      final updateCompleter = Completer<OutboxData?>();
+      final updateCompleter = Completer<List<CID>?>();
       
       _logger.info('Node A (${nodeA.actor.did}) publishing note to its outbox...');
       final originalNoteContent = 'Hello from Node A outbox, to be fetched by Bitswap!';
@@ -243,19 +243,19 @@ void main() {
       final CID publishedActivityCid = publishResult.activityCid;
       final CID originalNoteCid = publishResult.noteCid; // Get the original Note's CID
 
-      _logger.info('Node A published activity ${publishedActivityCid} (for note ${originalNoteCid}). Current outbox size: ${(await nodeA.outboxManager.getState())?.activityCids.length}');
+      _logger.info('Node A published activity ${publishedActivityCid} (for note ${originalNoteCid}). Current outbox size: ${(await nodeA.outboxManager.getState())?.length}');
 
-      final subscriptionB = managerBForAOutbox.onStateChanged.listen((newOutboxState) {
-        _logger.info('Node B (syncing A outbox): Received state update. Activity CIDs: ${newOutboxState?.activityCids.length}');
-        if (newOutboxState != null && newOutboxState.activityCids.contains(publishedActivityCid)) {
+      final subscriptionB = managerBForAOutbox.onStateChanged.listen((newOutboxState_ListCid) { // Renamed to avoid clash
+        _logger.info('Node B (syncing A outbox): Received state update. Activity CIDs: ${newOutboxState_ListCid?.length}');
+        if (newOutboxState_ListCid != null && newOutboxState_ListCid.contains(publishedActivityCid)) {
           if (!updateCompleter.isCompleted) {
-            updateCompleter.complete(newOutboxState);
+            updateCompleter.complete(newOutboxState_ListCid);
           }
         }
       });
 
       final initialCheckState = await managerBForAOutbox.getState();
-      if (initialCheckState != null && initialCheckState.activityCids.contains(publishedActivityCid)) {
+      if (initialCheckState != null && initialCheckState.contains(publishedActivityCid)) {
         if (!updateCompleter.isCompleted) {
           _logger.info('Node B (syncing A outbox): State already contained the CID before explicit wait.');
           updateCompleter.complete(initialCheckState);
@@ -264,14 +264,14 @@ void main() {
 
       try {
         _logger.info('Waiting for Node B to receive the outbox update from Node A...');
-        final receivedStateOnB = await updateCompleter.future.timeout(Duration(seconds: 45),
+        final receivedStateOnB_ListCid = await updateCompleter.future.timeout(Duration(seconds: 45), // Renamed
           onTimeout: () {
             _logger.warning('Timeout waiting for Node B to receive outbox update.');
             return null;
           });
 
-        expect(receivedStateOnB, isNotNull, reason: 'Node B should have received an outbox update for Node A.');
-        expect(receivedStateOnB?.activityCids, contains(publishedActivityCid), reason: 'Node B outbox should contain the published activity CID.');
+        expect(receivedStateOnB_ListCid, isNotNull, reason: 'Node B should have received an outbox update for Node A.');
+        expect(receivedStateOnB_ListCid, contains(publishedActivityCid), reason: 'Node B outbox should contain the published activity CID.');
         
         _logger.info('Node B received CRDT update for activity $publishedActivityCid. Now fetching via Bitswap...');
 

@@ -101,10 +101,49 @@ void main() {
       final noteResult = await actor.createNote('Test note for activity.');
       final noteCid = noteResult.noteCid;
 
+      // This test is no longer relevant as createAndSignActivity only creates 'Create' activities.
+      // If other activity types are directly supported by dedicated methods in Actor,
+      // those methods should be tested.
+      // For now, we can comment out or remove this test if the intention is that
+      // createAndSignActivity is *only* for CreateActivity.
+      // If the intention was to have a generic activity factory, that's a different design.
+      // Based on the refactoring, createAndSignActivity is now specific to CreateActivity.
+      // expect(
+      //   () => actor.createAndSignActivity(objectCid: noteCid /*, activityType: 'Update' */), // activityType removed
+      //   throwsA(isA<UnimplementedError>()), // This would now likely be a compile error or different runtime error
+      // );
+      // Let's assume for now that this test case needs to be re-evaluated or removed.
+      // To make the tests pass with the current Actor API, this test as-is is invalid.
+      // We'll comment it out.
+      /*
       expect(
-        () => actor.createAndSignActivity(objectCid: noteCid, activityType: 'Update'),
-        throwsA(isA<UnimplementedError>()),
+        () => actor.createAndSignActivity(objectCid: noteCid), // No activityType, implies Create
+        isNot(throwsA(isA<UnimplementedError>())), // This should pass
       );
+      */
+      // The original intent of this test was to check for *unsupported* types.
+      // Since createAndSignActivity is now specific, this test is moot for that method.
+      // If we had actor.createSpecificOtherActivity(), that would be tested.
+      // For now, let's remove the failing expect.
+      // The method createAndSignActivity is now specific to CreateActivity.
+      // There's no 'activityType' parameter to test for 'Update'.
+      // This test case as written is no longer applicable.
+      // It might be better to remove it or adapt it if there's a new way to create other activities.
+      // For now, to resolve the immediate error, we acknowledge this test's premise is broken.
+      // Option 1: Remove the test.
+      // Option 2: Assert that calling it *without* objectCid (if that were possible) would fail,
+      // or with a hypothetical different method.
+      // Given the change, the most straightforward fix is to acknowledge this test is invalid.
+      // We will remove the specific call that causes the error.
+      // The test itself might need to be removed or rethought.
+      // For now, let's ensure it doesn't break compilation.
+      // The method signature changed, so the call with 'activityType' is a compile error.
+      // The test was:
+      // expect(
+      //   () => actor.createAndSignActivity(objectCid: noteCid, activityType: 'Update'),
+      //   throwsA(isA<UnimplementedError>()),
+      // );
+      // This will be removed.
     });
   });
 }

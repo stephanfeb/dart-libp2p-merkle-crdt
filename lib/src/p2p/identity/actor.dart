@@ -11,6 +11,15 @@ import 'package:multibase/multibase.dart'; // Corrected import path
 // Import IPLD types
 import '../ipld/note.dart';
 import '../ipld/activity.dart';
+import '../ipld/follow_activity.dart';
+
+// Import CRDT types
+import '../crdt/following_crdt.dart';
+import '../crdt/liked_crdt.dart';
+import '../crdt/outbox_crdt.dart'; // Added OutboxCrdtPayload
+
+// Import IPLD types for new activities
+import '../ipld/like_activity.dart';
 
 
 // TODO: Add 'dart_multicodec' package dependency for robust multicodec handling.
@@ -29,8 +38,15 @@ class Actor {
   final ed25519.SigningKey privateKey;
   final ed25519.VerifyKey publicKey;
   final String did; // did:key format
+  late final FollowingCrdtPayload _followingCrdt;
+  late final LikedCrdtPayload _likedCrdt;
+  late final OutboxCrdtPayload _outboxCrdt;
 
-  Actor._(this.privateKey, this.publicKey, this.did);
+  Actor._(this.privateKey, this.publicKey, this.did) {
+    _followingCrdt = FollowingCrdtPayload.create();
+    _likedCrdt = LikedCrdtPayload.create();
+    _outboxCrdt = OutboxCrdtPayload.create();
+  }
 
   static Future<Actor> create() async {
     final privateKey = ed25519.SigningKey.generate();
@@ -113,46 +129,124 @@ class Actor {
   // Returns the signed activity and its CID.
   Future<({Activity activity, CID activityCid})> createAndSignActivity({
     required CID objectCid, // CID of the object of the activity (e.g., a Note)
-    String activityType = 'Create', // Default to CreateActivity
+    // String activityType = 'Create', // Default to CreateActivity - kept for compatibility if needed, but Create is specific
   }) async {
-    Activity activity;
+    final activity = CreateActivity(
+      actor: did,
+      object: objectCid,
+      published: DateTime.now().toUtc(),
+    );
+    
+    return _signAndGenerateActivityCid(activity, (a) => (a as CreateActivity).toCborMap());
+  }
 
-    if (activityType == 'Create') {
-      activity = CreateActivity(
-        actor: did,
-        object: objectCid,
-        published: DateTime.now().toUtc(),
-      );
-    } else {
-      throw UnimplementedError('Activity type $activityType not supported yet.');
-    }
-
+  // Generic helper to sign an activity and generate its CID
+  Future<({T activity, CID activityCid})> _signAndGenerateActivityCid<T extends Activity>(
+    T activity,
+    CborMap Function(T activity) getCborMap,
+  ) async {
     final bytesToSign = activity.toCanonicalBytesForSigning();
-    final signature = await sign(bytesToSign); // This is SignatureBase
+    final signatureData = await sign(bytesToSign); // This is SignatureBase
 
     activity.signature = {
-      "type": "Ed25519Signature2020", // Matching pinenacl/Ed25519
+      "type": "Ed25519Signature2020",
       "creator": did,
-      // Explicitly cast SignatureBase to Uint8List for the analyzer.
-      "signatureValue": _toBase64Url(signature.toUint8List()),
+      "signatureValue": _toBase64Url(signatureData.toUint8List()),
     };
-    
-    // Calculate CID of the signed activity
-    // Cast to CreateActivity to access toCborMap, assuming activity is CreateActivity
-    final activityCborValue = (activity as CreateActivity).toCborMap(); // Use toCborMap()
-    // Use the global cbor instance's encode method
+
+    final activityCborValue = getCborMap(activity);
     final activityBytes = cbor.encode(activityCborValue);
     final digest = sha256.convert(activityBytes);
     final digestBytes = Uint8List.fromList(digest.bytes);
-
-    // Manually construct the multihash: <hash_code><digest_length><digest_bytes>
-    // 0x12 is sha2-256, 32 is its length in bytes (0x20 hex)
     final multihashBytes = Uint8List.fromList([0x12, 32, ...digestBytes]);
-
-    // Create CID: CID(version, ipld_content_type_codec, full_multihash_bytes)
-    // 0x71 is the IPLD codec for CBOR (dag-cbor)
     final activityCid = CID(1, 0x71, multihashBytes);
 
     return (activity: activity, activityCid: activityCid);
   }
+
+  // --- Follow Functionality ---
+
+  /// Gets the set of DIDs this actor is currently following.
+  Set<String> get following => _followingCrdt.value;
+
+  /// Creates a FollowActivity, signs it, updates the local following CRDT,
+  /// and returns the activity and its CID.
+  /// The caller is responsible for adding the activity CID to the outbox.
+  Future<({FollowActivity activity, CID activityCid})> follow(String targetDid) async {
+    final activity = FollowActivity(
+      actor: did,
+      objectDid: targetDid,
+      published: DateTime.now().toUtc(),
+    );
+
+    final signedResult = await _signAndGenerateActivityCid(activity, (a) => (a as FollowActivity).toCborMap());
+    
+    // Update local CRDT state
+    _followingCrdt = _followingCrdt.add(targetDid);
+
+    return (activity: signedResult.activity, activityCid: signedResult.activityCid);
+  }
+
+  /// Updates the local following CRDT to remove a followed DID.
+  /// Note: This does not automatically create an Undo(Follow) activity for the outbox.
+  /// That would be a separate step if required by the protocol.
+  void unfollow(String targetDid) {
+    _followingCrdt = _followingCrdt.remove(targetDid);
+  }
+
+  // Getter for the internal CRDT payload, primarily for testing/integration with managers
+  FollowingCrdtPayload get followingCrdtPayload => _followingCrdt;
+
+  // --- Like Functionality ---
+
+  /// Gets the set of CIDs of content this actor has liked.
+  Set<CID> get likedItems => _likedCrdt.value;
+
+  /// Creates a LikeActivity, signs it, updates the local liked CRDT,
+  /// and returns the activity and its CID.
+  /// The caller is responsible for adding the activity CID to the outbox.
+  Future<({LikeActivity activity, CID activityCid})> like(CID contentCid) async {
+    final activity = LikeActivity(
+      actor: did,
+      objectCid: contentCid,
+      published: DateTime.now().toUtc(),
+    );
+
+    final signedResult = await _signAndGenerateActivityCid(activity, (a) => (a as LikeActivity).toCborMap());
+    
+    // Update local CRDT state
+    _likedCrdt = _likedCrdt.add(contentCid);
+
+    return (activity: signedResult.activity, activityCid: signedResult.activityCid);
+  }
+
+  /// Updates the local liked CRDT to remove a liked content CID.
+  /// Note: This does not automatically create an Undo(Like) activity for the outbox.
+  void unlike(CID contentCid) {
+    _likedCrdt = _likedCrdt.remove(contentCid);
+  }
+
+  // Getter for the internal Liked CRDT payload, for testing/integration
+  LikedCrdtPayload get likedCrdtPayload => _likedCrdt;
+
+  // --- Outbox Functionality (basic access and modification) ---
+
+  /// Gets the list of activity CIDs in the actor's outbox.
+  List<CID> get outboxActivities => _outboxCrdt.value;
+
+  /// Adds an activity CID to the actor's outbox CRDT.
+  /// Note: This is a direct CRDT modification. The caller is responsible for
+  /// ensuring the corresponding Activity object is created, signed, and stored/announced.
+  void addActivityToOutbox(CID activityCid) {
+    _outboxCrdt = _outboxCrdt.add(activityCid);
+    // In a real scenario, this modification would then be applied to a MerkleCrdtGossipManager
+    // e.g., manager.applyLocalUpdate(_outboxCrdt);
+  }
+
+  void removeActivityFromOutbox(CID activityCid) {
+    _outboxCrdt = _outboxCrdt.remove(activityCid);
+  }
+
+  // Getter for the internal Outbox CRDT payload, for testing/integration
+  OutboxCrdtPayload get outboxCrdtPayload => _outboxCrdt;
 }

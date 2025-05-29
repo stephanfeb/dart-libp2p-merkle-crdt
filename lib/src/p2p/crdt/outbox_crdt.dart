@@ -4,22 +4,11 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 import 'package:dart_cid/dart_cid.dart' show CID;
 
-// Represents the resolved, viewable outbox data
-class OutboxData {
-  final List<CID> activityCids;
-
-  OutboxData({required this.activityCids});
-
-  @override
-  String toString() {
-    return 'OutboxData(activityCids: [${activityCids.map((c) => c.toString()).join(', ')}])';
-  }
-}
-
-// OutboxCrdtPayload implements CRDTPayload<OutboxData>
-// This is a simplified append-only log. Merging combines lists and sorts by CID string for canonical order.
-// A more sophisticated implementation might use a proper sequence CRDT like RGA.
-class OutboxCrdtPayload implements CRDTPayload<OutboxData> {
+// OutboxCrdtPayload implements CRDTPayload<List<CID>>
+// This is a simplified append-only log (semantically a set of CIDs for now).
+// Merging combines sets of CID strings.
+// The `value` getter sorts them for a consistent view.
+class OutboxCrdtPayload implements CRDTPayload<List<CID>> {
   // Internally, we store CIDs as strings to make them easily JSON serializable
   // and to simplify sorting for canonical representation.
   final Set<String> _activityCidStrings;
@@ -31,16 +20,15 @@ class OutboxCrdtPayload implements CRDTPayload<OutboxData> {
   }
 
   @override
-  OutboxData get value {
+  List<CID> get value {
     final cids = _activityCidStrings.map((s) => CID.fromString(s)).toList();
     // Sort by CID string to ensure a consistent order for the view model.
     // This order might not reflect the actual append order if CIDs don't have inherent time.
-    // For true append order, a more complex CRDT or use of Merkle-clock links is needed.
     cids.sort((a, b) => a.toString().compareTo(b.toString()));
-    return OutboxData(activityCids: cids);
+    return cids;
   }
 
-  OutboxCrdtPayload append(CID activityCid) {
+  OutboxCrdtPayload add(CID activityCid) { // Renamed from append to add for consistency with set-like behavior
     final newCidStrings = Set<String>.from(_activityCidStrings);
     newCidStrings.add(activityCid.toString());
     return OutboxCrdtPayload._(newCidStrings);

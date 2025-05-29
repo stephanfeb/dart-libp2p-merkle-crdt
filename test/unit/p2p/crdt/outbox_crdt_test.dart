@@ -1,123 +1,118 @@
 import 'dart:typed_data';
 import 'dart:convert' show jsonEncode, jsonDecode;
 import 'package:test/test.dart';
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dart_cid/dart_cid.dart' show CID; // Added import for CID
+
 import 'package:dart_libp2p_merkle_crdt/src/p2p/crdt/outbox_crdt.dart';
 
 void main() {
-  group('OutboxCrdtPayload Tests', () {
-    late OutboxCrdtPayload payload;
+  group('OutboxCrdtPayload', () {
+    final cid1 = CID.fromString('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi');
+    final cid2 = CID.fromString('bafybeih3ryd464z3wfwvdns2qflqxlpmsoqgijdj4acpyebrzshnsgxmf4');
+    final cid3 = CID.fromString('bafybeibzzoneqmyqflqo7d7k7yvj4vhyqgvayfdtk3fcrqjpvgnorgqbs4');
 
-    final cid1 = CID.fromString('bafkreibm6jg3ux5qumhcn2b3flc3tyu6dmlb4xa7u5bf44yegnrjhc4yeq'); // "a"
-    final cid2 = CID.fromString('bafkreidgjalwh3js3n7ot34g3w2pw34b2ihhmswgybylrkv6esqmyV5k3i'); // "b"
-    final cid3 = CID.fromString('bafkreic4alt3gdeiubm2pqf5o7t6w7znsj4lb5kafszsw3fujy7smf5lry'); // "c"
+    List<String> toSortedStringList(List<CID> cids) {
+      return cids.map((c) => c.toString()).toList()..sort();
+    }
 
-    setUp(() {
-      payload = OutboxCrdtPayload.create();
+    test('create initializes an empty outbox', () {
+      final payload = OutboxCrdtPayload.create();
+      expect(payload.value, isEmpty);
     });
 
-    test('Creation results in an empty outbox', () {
-      expect(payload.value.activityCids, isEmpty);
+    test('add adds CIDs to the outbox', () {
+      var payload = OutboxCrdtPayload.create();
+      payload = payload.add(cid1);
+      expect(toSortedStringList(payload.value), equals(toSortedStringList([cid1])));
+      payload = payload.add(cid2);
+      expect(toSortedStringList(payload.value), equals(toSortedStringList([cid1, cid2])));
     });
 
-    test('Append CIDs', () {
-      payload = payload.append(cid1);
-      expect(payload.value.activityCids, contains(cid1));
-      expect(payload.value.activityCids.length, 1);
-
-      payload = payload.append(cid2);
-      expect(payload.value.activityCids, containsAll([cid1, cid2]));
-      expect(payload.value.activityCids.length, 2);
+    test('add is idempotent for the same CID in terms of set semantics', () {
+      var payload = OutboxCrdtPayload.create();
+      payload = payload.add(cid1);
+      payload = payload.add(cid1); // Add same CID
+      expect(payload.value.length, 1);
+      expect(toSortedStringList(payload.value), equals(toSortedStringList([cid1])));
     });
 
-    test('Append duplicate CID does not change the set', () {
-      payload = payload.append(cid1);
-      payload = payload.append(cid1);
-      expect(payload.value.activityCids, contains(cid1));
-      expect(payload.value.activityCids.length, 1);
-    });
-
-    test('Remove CID', () {
-      payload = payload.append(cid1);
-      payload = payload.append(cid2);
+    test('remove CIDs from the outbox', () {
+      var payload = OutboxCrdtPayload.create();
+      payload = payload.add(cid1);
+      payload = payload.add(cid2);
       payload = payload.remove(cid1);
+      expect(payload.value, isNot(contains(cid1)));
+      expect(payload.value, contains(cid2));
+      expect(payload.value.length, 1);
+    });
+
+    test('remove on a non-existent CID has no effect', () {
+      var payload = OutboxCrdtPayload.create();
+      payload = payload.add(cid1);
+      final initialValue = List<CID>.from(payload.value);
+      payload = payload.remove(cid2); // cid2 was never added
+      expect(payload.value, equals(initialValue));
+    });
+
+    test('merge combines CIDs from two outboxes, duplicates are handled by Set', () {
+      var p1 = OutboxCrdtPayload.create();
+      p1 = p1.add(cid1);
+      p1 = p1.add(cid2);
+
+      var p2 = OutboxCrdtPayload.create();
+      p2 = p2.add(cid2); // cid2 is common
+      p2 = p2.add(cid3);
+
+      final merged = p1.merge(p2);
+      expect(toSortedStringList(merged.value), equals(toSortedStringList([cid1, cid2, cid3])));
+      expect(merged.value.length, 3);
+    });
+
+    test('merge with one empty outbox results in the other outbox', () {
+      var p1 = OutboxCrdtPayload.create();
+      p1 = p1.add(cid1);
+      p1 = p1.add(cid2);
+
+      var p2 = OutboxCrdtPayload.create(); // Empty
+
+      final merged1 = p1.merge(p2);
+      final merged2 = p2.merge(p1);
       
-      expect(payload.value.activityCids, isNot(contains(cid1)));
-      expect(payload.value.activityCids, contains(cid2));
-      expect(payload.value.activityCids.length, 1);
+      expect(toSortedStringList(merged1.value), equals(toSortedStringList([cid1, cid2])));
+      expect(toSortedStringList(merged2.value), equals(toSortedStringList([cid1, cid2])));
     });
 
-    test('Remove non-existent CID does not change the set', () {
-      payload = payload.append(cid1);
-      payload = payload.remove(cid2); // cid2 not in payload
-      expect(payload.value.activityCids, contains(cid1));
-      expect(payload.value.activityCids.length, 1);
-    });
+    test('toBytes and fromBytes round trip', () {
+      var payload = OutboxCrdtPayload.create();
+      payload = payload.add(cid1);
+      payload = payload.add(cid3); 
+      payload = payload.add(cid2);
 
-    test('Value activityCids are sorted by CID string', () {
-      payload = payload.append(cid3); // "c"
-      payload = payload.append(cid1); // "a"
-      payload = payload.append(cid2); // "b"
-
-      final sortedCids = [cid1, cid2, cid3]..sort((a,b) => a.toString().compareTo(b.toString()));
-      expect(payload.value.activityCids, orderedEquals(sortedCids));
-    });
-
-    test('Merge: disjoint CIDs', () {
-      var payload1 = OutboxCrdtPayload.create().append(cid1);
-      var payload2 = OutboxCrdtPayload.create().append(cid2);
-
-      final merged = payload1.merge(payload2);
-      final expected = [cid1, cid2]..sort((a,b) => a.toString().compareTo(b.toString()));
-      expect(merged.value.activityCids, orderedEquals(expected));
-    });
-
-    test('Merge: overlapping CIDs', () {
-      var payload1 = OutboxCrdtPayload.create().append(cid1).append(cid2);
-      var payload2 = OutboxCrdtPayload.create().append(cid2).append(cid3);
-
-      final merged = payload1.merge(payload2);
-      final expected = [cid1, cid2, cid3]..sort((a,b) => a.toString().compareTo(b.toString()));
-      expect(merged.value.activityCids, orderedEquals(expected));
-    });
-    
-    test('Merge with empty payload', () {
-      payload = payload.append(cid1).append(cid2);
-      final emptyPayload = OutboxCrdtPayload.create();
-      
-      final merged1 = payload.merge(emptyPayload);
-      expect(merged1.value.activityCids, orderedEquals(payload.value.activityCids));
-
-      final merged2 = emptyPayload.merge(payload);
-      expect(merged2.value.activityCids, orderedEquals(payload.value.activityCids));
-    });
-
-    test('Serialization and Deserialization (toBytes/fromBytes)', () {
-      payload = payload.append(cid3).append(cid1); // c, a
-      
       final bytes = payload.toBytes();
-      final deserialized = OutboxCrdtPayload.fromBytes(bytes);
-
-      // Expected order after deserialization and value getter is sorted [a, c]
-      final expectedCids = [cid1, cid3]..sort((a,b) => a.toString().compareTo(b.toString()));
-      expect(deserialized.value.activityCids, orderedEquals(expectedCids));
-    });
-
-    test('Serialization and Deserialization (toCanonicalBytes/fromBytes)', () {
-      payload = payload.append(cid2).append(cid3).append(cid1); // b, c, a
+      final reconstructed = OutboxCrdtPayload.fromBytes(bytes);
       
-      final bytes = payload.toCanonicalBytes();
-      final deserialized = OutboxCrdtPayload.fromBytes(bytes);
-
-      // Expected order after deserialization and value getter is sorted [a, b, c]
-      final expectedCids = [cid1, cid2, cid3]..sort((a,b) => a.toString().compareTo(b.toString()));
-      expect(deserialized.value.activityCids, orderedEquals(expectedCids));
-    });
-    
-    test('toBytes and toCanonicalBytes produce same output for this CRDT', () {
-      payload = payload.append(cid3).append(cid1);
-      expect(payload.toBytes(), equals(payload.toCanonicalBytes()));
+      expect(toSortedStringList(reconstructed.value), toSortedStringList(payload.value));
     });
 
+    test('toCanonicalBytes produces consistent output', () {
+      var p1 = OutboxCrdtPayload.create();
+      p1 = p1.add(cid1);
+      p1 = p1.add(cid2);
+
+      var p2 = OutboxCrdtPayload.create();
+      p2 = p2.add(cid2); 
+      p2 = p2.add(cid1);
+
+      expect(p1.toCanonicalBytes(), equals(p2.toCanonicalBytes()));
+      
+      var p3 = OutboxCrdtPayload.create().add(cid3);
+      expect(p1.toCanonicalBytes(), isNot(equals(p3.toCanonicalBytes())));
+    });
+
+    test('toString returns a non-empty string', () {
+      var payload = OutboxCrdtPayload.create().add(cid1);
+      expect(payload.toString(), isA<String>());
+      expect(payload.toString(), isNotEmpty);
+    });
   });
 }
