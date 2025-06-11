@@ -2,7 +2,7 @@
 import 'dart:async';
 
 import 'package:dart_cid/dart_cid.dart' show CID; // Import CID
-import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
+import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, MerkleNode; // MerkleNode is exported here
 import 'package:logging/logging.dart';
 
 // Correct import for BlockStore
@@ -20,14 +20,17 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 
   late final MerkleCRDT<V, P> _merkleCrdt; // Changed to late final
   final P2PStreamDagFetcher<P, V> _dagFetcher; // Store the dagFetcher
-  // _announcer is passed to MerkleCRDT, which uses it internally.
-  // final GossipSubAnnouncer _announcer; // Not strictly needed to be stored if only used in constructor
+  final GossipSubAnnouncer _announcer; // Store the announcer instance
+  String? _latestKnownCid; // Store the latest known CID
+
   String get _shortPeerId => _dagFetcher.peerId.toBase58().substring(0, 6);
 
   // No longer needed as MerkleCRDT handles its broadcaster subscription internally.
-  // StreamSubscription<String>? _headSubscription; 
-  
+  // StreamSubscription<String>? _headSubscription;
+
+
   final StreamController<V?> _stateController = StreamController<V?>.broadcast();
+  final StreamController<String> _cidController = StreamController<String>.broadcast(); // For CID changes
   V? _currentState;
 
   /// Stream of CRDT state updates (logical value V). Emits the new state whenever it changes.
@@ -35,6 +38,13 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.finer('onStateChanged: Stream accessed.');
     return _stateController.stream;
   }
+
+  /// Stream of new head CIDs for this CRDT (after local or remote updates).
+  Stream<String> get onCidChanged => _cidController.stream;
+
+  /// Gets the latest known root CID of this CRDT.
+  /// This is updated after a successful local or remote update.
+  String? get latestKnownCid => _latestKnownCid;
 
   /// Gets the current cached logical value of the CRDT.
   V? get currentState {
@@ -54,13 +64,14 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     // required Uint8List Function(P) payloadSerializer,
 
   }) : _logger = Logger(loggerName ?? 'MerkleCrdtGossipManager'),
-        _dagFetcher = dagFetcher { // Initialize _logger and _dagFetcher in initializer list
+       _dagFetcher = dagFetcher,
+       _announcer = announcer { // Initialize _logger, _dagFetcher, and _announcer
 
     // Initialize _merkleCrdt in the constructor body
     _merkleCrdt = MerkleCRDT<V, P>(
-      dagSyncer: _dagFetcher, // 'this._dagFetcher' is now fully available
-      broadcaster: announcer,
-      onRemoteUpdateProcessed: _onMerkleCRDTRemoteUpdate, // 'this._onMerkleCRDTRemoteUpdate' is now safe
+      dagSyncer: _dagFetcher, 
+      broadcaster: _announcer, // Use the stored announcer
+      onRemoteUpdateProcessed: _onMerkleCRDTRemoteUpdate,
     );
 
     _logger.info('Instance created. Effective logger name: ${_logger.name}. ShortPeerId: $_shortPeerId'); 
@@ -81,10 +92,25 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   }
 
   /// Handles the callback from MerkleCRDT when a remote update is processed.
-  void _onMerkleCRDTRemoteUpdate() {
+  void _onMerkleCRDTRemoteUpdate() async { // Made async
     // This method is called on a fully constructed instance.
     _logger.info('Node $_shortPeerId: MerkleCRDT reported remote update. Refreshing manager state.');
-    _updateCurrentStateAndNotify();
+    await _updateCurrentStateAndNotify(); // This updates _currentState
+    try {
+      final Set<CID> currentHeadsSet = await _merkleCrdt.roots; // Use the 'roots' getter, which returns a Set
+      if (currentHeadsSet.isNotEmpty) {
+        final newCidString = currentHeadsSet.first.toString(); // Take the first head's CID from the set
+        if (_latestKnownCid != newCidString) {
+          _latestKnownCid = newCidString;
+          _logger.info('Node $_shortPeerId: Remote update processed. New head CID: $_latestKnownCid');
+          if (!_cidController.isClosed) {
+            _cidController.add(_latestKnownCid!);
+          }
+        }
+      }
+    } catch (e,s) {
+      _logger.severe('Node $_shortPeerId: Error getting head CID after remote update: $e', e, s);
+    }
   }
 
   Future<void> _updateCurrentStateAndNotify() async {
@@ -128,7 +154,14 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
     try {
       final CID newHeadCid = await _merkleCrdt.add(payload);
-      _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Local update applied to MerkleCRDT. New head CID: $newHeadCid. MerkleCRDT will broadcast new head.');
+      final newCidString = newHeadCid.toString();
+      bool cidChanged = _latestKnownCid != newCidString;
+      _latestKnownCid = newCidString; // Update latest known CID
+      _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Local update applied to MerkleCRDT. New head CID: $_latestKnownCid. MerkleCRDT will broadcast new head.');
+
+      if (cidChanged && !_cidController.isClosed) {
+        _cidController.add(_latestKnownCid!);
+      }
 
       // Advertise the new head CID on the DHT
       if (_dagFetcher.dht != null) {
@@ -164,6 +197,14 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       
       // This method is primarily a getter, but we can still update our cache
       // and notify if a direct fetch reveals a change not yet reflected.
+      // This method should primarily be a getter and not have side effects like updating _currentState
+      // or notifying listeners. _updateCurrentStateAndNotify handles that.
+      // However, if called, it should return the most up-to-date logical value.
+      // For consistency, we can call _updateCurrentStateAndNotify to ensure cache is fresh,
+      // though this makes getState() have side effects.
+      // A cleaner approach might be for _updateCurrentStateAndNotify to be called by MerkleCRDT's
+      // onRemoteUpdateProcessed and after local add, and getState just returns _currentState.
+      // For now, let's keep the existing logic which updates the cache if different.
       bool changed;
       if (_currentState == null && logicalValue == null) {
         changed = false;
@@ -180,6 +221,10 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       } else {
         _logger.finer('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Fetched state is same as cached. Value: $_currentState');
       }
+      // Update _latestKnownCid if possible, though getState doesn't directly yield a CID.
+      // The CID is associated with the MerkleCRDT's head, which getState reflects.
+      // If MerkleCRDT exposed its current head CID, we could update _latestKnownCid here.
+      // For now, _latestKnownCid is only updated on local `add`.
       return logicalValue;
     } catch (e, s) {
       _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: getState: Error during MerkleCRDT.getState(): $e', e, s);
@@ -200,7 +245,8 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: close: Closing MerkleCrdtGossipManager...');
     // _headSubscription was removed.
     await _stateController.close();
-    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: close: State controller closed.');
+    await _cidController.close(); // Close CID controller
+    _logger.fine('[MerkleCrdtGossipManager] Node $_shortPeerId: close: State and CID controllers closed.');
     // The announcer and fetcher lifecycles are assumed to be managed externally
     // or tied to the lifecycle of the Host/PubSub instances they use.
     // If this manager "owned" them, it would call:

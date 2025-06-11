@@ -233,6 +233,114 @@ void main() async {
 *   **Serialization/Deserialization of `MerkleNode`:** The current implementation in `P2PStreamDagFetcher` uses a simplified JSON-based serialization for `MerkleNode` objects for transmission over P2P streams. For production, consider a more efficient and robust binary format (e.g., Protobuf).
 *   **Error Handling & Resilience:** The current error handling is basic. Production systems would require more sophisticated retry mechanisms, connection management, and error reporting.
 
+## ActivityPub-Inspired P2P Social Primitives ("activity-pubsub")
+
+This library also provides a suite of P2P social primitives inspired by ActivityPub, built on top of the core Merkle-CRDT synchronization layer. These primitives, developed under the "activity-pubsub" initiative, enable developers to easily integrate decentralized social features into their applications. They leverage DIDs for identity, IPLD for data structures, Merkle-CRDTs for state management, and libp2p (GossipSub and Bitswap) for communication.
+
+### Core Concepts
+
+*   **Actors**: Represent users or entities in the social graph, identified by Decentralized Identifiers (DIDs), typically `did:key`. Each actor has a Profile and manages their own data.
+*   **Content Objects (IPLD)**: Social objects like posts (`Note`) are structured using IPLD, allowing them to be content-addressed (referenced by CID).
+*   **Activities (IPLD)**: Actions performed by actors (e.g., creating a note, following another actor, liking content) are also modeled as IPLD objects. These activities are signed by the actor's private key.
+*   **CRDTs for State**: Mutable collections and actor states (e.g., profiles, lists of posts in an `outbox`, `following` lists, `liked` items) are managed using Merkle-CRDTs. This ensures eventual consistency across peers without central servers.
+*   **Replication & Exchange**:
+    *   Updates to CRDT heads (signifying new state) are announced and replicated using the `dart-libp2p-merkle-crdt` mechanisms (i.e., GossipSub for head announcements and direct P2P stream-based DAG syncing for CRDT nodes).
+    *   IPLD content objects and activities are fetched by their CIDs using a Bitswap-compatible mechanism (facilitated by `P2PStreamDagFetcher` or a dedicated Bitswap client).
+
+### Key Features & Usage
+
+The following features correspond to Phases 1-3 of the `activity-pubsub.md` development plan.
+
+#### 1. Actor Identity & Profile
+
+*   **Actor Identity (`lib/src/p2p/identity/actor.dart`)**:
+    *   Actors generate and manage their cryptographic key pairs, from which DIDs (e.g., `did:key`) are derived.
+*   **Actor Profile CRDT (`ProfileCrdt` - `lib/src/p2p/crdt/profile_crdt.dart`)**:
+    *   A Merkle-CRDT (e.g., LWW-Map or JSON-CRDT) storing profile information.
+    *   **Required fields**: `id` (DID), `type` ("Person", "Service", etc.), `publicKeyJwk`.
+    *   **Recommended fields**: `name`, `preferredUsername`, `summary`, `icon` (CID to image), `image` (CID to image).
+    *   **Usage**:
+        *   An actor creates and updates their `ProfileCrdt`.
+        *   The head of this CRDT is gossiped (e.g., on a topic like `profiles/<actor_did>`).
+        *   Clients discover and sync an actor's `ProfileCrdt` to view their profile.
+
+#### 2. Content Publishing
+
+*   **Content Object (`Note` - `lib/src/p2p/ipld/note.dart`)**:
+    *   An IPLD schema for simple content (e.g., `{"@context": "...", "type": "Note", "content": "...", "published": "timestamp"}`).
+    *   Actors create `Note` IPLD blocks, resulting in a CID.
+*   **`Create` Activity (IPLD - schema defined in `lib/src/p2p/ipld/activity.dart` context)**:
+    *   An IPLD schema (e.g., `{"@context": "...", "type": "Create", "actor": "actor_did", "object": "note_cid", "published": "timestamp"}`).
+    *   Activities are signed by the actor's private key.
+    *   Actors create `Create` activity IPLD blocks, resulting in a CID.
+*   **`outbox` CRDT (`OutboxCrdt` - `lib/src/p2p/crdt/outbox_crdt.dart`)**:
+    *   An append-only log CRDT storing CIDs of an actor's activities.
+    *   **Usage**:
+        *   To publish: An actor appends the CID of a new activity (e.g., a `Create` activity for a `Note`) to their `OutboxCrdt`.
+        *   The `OutboxCrdt` head is gossiped (e.g., on topic `outboxes/<actor_did>`).
+        *   Clients sync an actor's `OutboxCrdt` to retrieve their activities, then fetch the actual IPLD objects (Activities, Notes) by CID via Bitswap.
+        *   Actors should make their own content and activities available via Bitswap (e.g., by "pinning" them in their local `BlockStore`).
+
+#### 3. Basic Social Interactions
+
+*   **`Follow` Activity & `following` CRDT**:
+    *   **`FollowActivity` (`lib/src/p2p/ipld/follow_activity.dart`)**: IPLD schema (e.g., `{"type": "Follow", "actor": "follower_did", "object": "followed_actor_did"}`). Signed and added to the follower's `outbox`.
+    *   **`FollowingCrdt` (`lib/src/p2p/crdt/following_crdt.dart`)**: An OR-Set CRDT storing DIDs of actors being followed.
+    *   **Usage**: To follow someone, an actor adds a `FollowActivity` to their `outbox` and updates their `FollowingCrdt`. Clients sync this CRDT to know who the user follows.
+*   **`Like` Activity & `liked` CRDT**:
+    *   **`LikeActivity` (`lib/src/p2p/ipld/like_activity.dart`)**: IPLD schema (e.g., `{"type": "Like", "actor": "liker_did", "object": "liked_content_cid"}`). Signed and added to the liker's `outbox`.
+    *   **`LikedCrdt` (`lib/src/p2p/crdt/liked_crdt.dart`)**: An OR-Set CRDT storing CIDs of liked content.
+    *   **Usage**: To like content, an actor adds a `LikeActivity` to their `outbox` and updates their `LikedCrdt`.
+
+#### 4. Enhanced Interactions & Content Management
+
+*   **Replies (`CreateActivity` with `inReplyTo`)**:
+    *   A reply is a `Note` object (IPLD). The `Create` activity for the reply includes an `inReplyTo: "original_content_cid"` property.
+    *   The reply activity is signed and added to the replier's `outbox`.
+    *   **Usage**: Clients reconstruct conversation threads by linking `inReplyTo` properties. Reply discovery can be client-side (e.g., scanning outboxes of followed users).
+*   **`Announce` (Boost/Share) Activity (`AnnounceActivity` - `lib/src/p2p/ipld/announce_activity.dart`)**:
+    *   IPLD schema (e.g., `{"type": "Announce", "actor": "announcer_did", "object": "announced_content_cid"}`).
+    *   Signed and added to the announcer's `outbox`.
+    *   **Usage**: Client displays announced content, attributing the original author and the announcer.
+*   **`Delete` Activity (Tombstoning) (`DeleteActivity` - `lib/src/p2p/ipld/delete_activity.dart`)**:
+    *   IPLD schema (e.g., `{"type": "Delete", "actor": "deleter_did", "object": "content_to_delete_cid"}`).
+    *   Signed and added to the actor's `outbox`.
+    *   **Usage**:
+        *   Clients should hide content associated with a `Delete` activity.
+        *   The actor's client should unpin (stop serving via Bitswap) their "deleted" content. Other clients may optionally unpin it from their local cache.
+*   **Actor Mentions**:
+    *   Implemented by convention using `Mention` tags within `Note` content (e.g., `{"type": "Mention", "href": "mentioned_actor_did"}`).
+    *   **Usage**: Initial mention discovery is typically client-side, scanning content from followed users.
+
+### Integrating "activity-pubsub" Features into an Application
+
+1.  **Core Setup**:
+    *   Initialize your libp2p `Host`, `PubSub` (GossipSub), and optionally `IpfsDHT` as described in the "Getting Started" section of this README.
+2.  **Manage CRDT Instances**:
+    *   For each actor and each type of social CRDT (Profile, Outbox, Following, Liked), you will typically instantiate a `MerkleCrdtGossipManager`.
+    *   The `crdtInstanceId` for each manager should be unique and discoverable, often incorporating the actor's DID and the CRDT type (e.g., `profile-<actor_did>`, `outbox-<actor_did>`).
+    *   Provide the appropriate `payloadFactory` for each CRDT type (e.g., `ProfileCrdt.fromBytes`, `OutboxCrdt.fromBytes`).
+3.  **Actor Management**:
+    *   Implement logic for creating/loading actor identities (key pairs, DIDs).
+4.  **Implement Social Actions**:
+    *   **Creating Content**:
+        1.  Construct the `Note` IPLD object. Store it locally (e.g., via `P2PStreamDagFetcher`'s `blockStore.put()`) to get its CID and make it available via Bitswap.
+        2.  Construct the `CreateActivity` IPLD object, embedding the `Note`'s CID. Sign it. Store it and get its CID.
+        3.  Update the actor's `OutboxCrdt` by adding the `CreateActivity`'s CID, then call `manager.applyLocalUpdate()` on the outbox manager.
+    *   **Other Activities (Follow, Like, Announce, Delete)**: Follow a similar pattern: create the activity IPLD object, sign it, store it, get its CID, and add this CID to the actor's `OutboxCrdt`. For `Follow` and `Like`, also update the respective `FollowingCrdt` or `LikedCrdt`.
+5.  **Data Fetching & Synchronization**:
+    *   To view a profile, sync the `ProfileCrdt` for the target actor's DID.
+    *   To build a feed or view posts, sync the `OutboxCrdt` of relevant actors. For each activity CID in an outbox, fetch the activity IPLD object, and if it's a `Create` or `Announce` of a `Note`, fetch the `Note` IPLD object. This is done via the `P2PStreamDagFetcher` (which uses Bitswap-like mechanisms).
+6.  **Client-Side Logic**:
+    *   Develop the UI/UX for presenting social information.
+    *   Implement client-side aggregation (e.g., a chronological feed from multiple followed outboxes).
+    *   Handle threading of replies by processing `inReplyTo` fields.
+    *   Respect `Delete` activities by hiding or removing content.
+
+The "activity-pubsub" primitives provide a flexible foundation. Application developers are responsible for combining these building blocks to create rich user experiences. For more details on the specific CRDTs and IPLD models, refer to the source files in `lib/src/p2p/`.
+
+Future development (Phase 4 and beyond) aims to explore advanced discovery, storage strategies, moderation primitives, and more.
+
 ## Additional Information
 
 *   **`merkledag` package:** [Link to your `merkledag` package or its documentation]

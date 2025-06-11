@@ -95,6 +95,11 @@ This document outlines a phased approach to building a set of P2P social primiti
 *   **[x] Actor Mentions (Basic)**
     *   [x] Convention for `Mention` tags within `Note` content (e.g., `{"type": "Mention", "href": "mentioned_actor_did"}`).
     *   [x] Initial mention discovery: e.g., client-side scanning of content from followed users.
+*   **[ ] `Update` Activity for `Note` Objects - IPLD**
+    *   [ ] Define IPLD schema for `Update` activity (e.g., `{"type": "Update", "actor": "updater_did", "object": "original_note_cid", "result": "new_note_cid"}`).
+    *   [ ] Actor creates a new version of the `Note` (new IPLD block, new CID).
+    *   [ ] `Update` activity (referencing original and new Note CIDs) is signed and added to the actor's `outbox`.
+    *   [ ] Client handles `Update` activity by displaying the content of the `new_note_cid` in place of the `original_note_cid`.
 
 ## Phase 4: Scalability, UX Enhancements & Advanced Features (Future Roadmap)
 
