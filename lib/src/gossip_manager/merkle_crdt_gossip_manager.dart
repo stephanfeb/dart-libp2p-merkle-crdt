@@ -255,4 +255,50 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     // but BlockStore might).
     _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: MerkleCrdtGossipManager closed.');
   }
+
+  /// Explicitly re-announces the current latest known head CID.
+  ///
+  /// This method will attempt to:
+  /// 1. Provide the `_latestKnownCid` to the DHT via `_dagFetcher`.
+  /// 2. Broadcast the `_latestKnownCid` via `_announcer`.
+  ///
+  /// This can be useful if initial announcements might have failed or if a
+  /// manual re-publish is desired.
+  Future<void> forceAnnounceCurrentHead() async {
+    _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Attempting to re-announce latestKnownCid: $_latestKnownCid');
+    if (_latestKnownCid == null) {
+      _logger.warning('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: No latestKnownCid to announce.');
+      return;
+    }
+
+    try {
+      final cidToAnnounce = CID.fromString(_latestKnownCid!); // Parse string to CID
+
+      // 1. Attempt to provide to DHT
+      if (_dagFetcher.dht != null) {
+        _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Providing CID $cidToAnnounce to local DHT.');
+        try {
+          await _dagFetcher.dht!.provide(cidToAnnounce, true);
+          _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Successfully provided CID $cidToAnnounce to local DHT.');
+        } catch (e, s) {
+          _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Error providing CID $cidToAnnounce to DHT: $e', e, s);
+          // Continue to broadcast attempt even if DHT provide fails
+        }
+      } else {
+        _logger.warning('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: _dagFetcher.dht is null, cannot provide CID $cidToAnnounce to DHT.');
+      }
+
+      // 2. Attempt to broadcast via announcer
+      _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Broadcasting CID $_latestKnownCid via announcer.');
+      try {
+        await _announcer.broadcast(_latestKnownCid!); // Announcer expects a String CID
+        _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Successfully broadcasted CID $_latestKnownCid.');
+      } catch (e, s) {
+        _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Error broadcasting CID $_latestKnownCid: $e', e, s);
+      }
+      _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Re-announcement process complete for CID $_latestKnownCid.');
+    } catch (e, s) {
+      _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: forceAnnounceCurrentHead: Error parsing CID or during announcement logic for $_latestKnownCid: $e', e, s);
+    }
+  }
 }
