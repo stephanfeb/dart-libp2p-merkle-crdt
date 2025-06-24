@@ -150,7 +150,7 @@ Future<Libp2pNode> createLibp2pNode({
 
 
   // final host = await hostConfig.newNode();
-  final host = BasicHost(
+  final host = await BasicHost.create(
     network: network,
     config: hostConfig,
   );

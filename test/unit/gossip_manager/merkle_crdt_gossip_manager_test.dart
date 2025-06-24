@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert'; // For utf8 in TestPayload
 
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:dart_cid/dart_cid.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/gossipsub_announcer.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/merkle_crdt_gossip_manager.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/p2p_stream_dag_fetcher.dart';
+import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -27,6 +30,8 @@ class TestPayload implements CRDTPayload<String> {
   final String value;
 
   TestPayload(this.value);
+
+
 
   @override
   Uint8List toCanonicalBytes() => Uint8List.fromList(utf8.encode(value));

@@ -78,13 +78,13 @@ void main() {
       expect(merged3.value.map((c) => c.toString()), equals({cid1.toString(), cid2.toString()}));
     });
 
-    test('toBytes() and fromBytes() round trip', () {
+    test('toCanonicalBytes() and fromBytes() round trip', () {
       var payload = LikedCrdtPayload.create();
       payload = payload.add(cid1);
       payload = payload.add(cid2);
       payload = payload.remove(cid1); // Value is {cid2}
 
-      final bytes = payload.toBytes();
+      final bytes = payload.toCanonicalBytes();
       final reconstructed = LikedCrdtPayload.fromBytes(bytes);
 
       expect(reconstructed.value.map((c) => c.toString()), equals({cid2.toString()}));
@@ -94,7 +94,7 @@ void main() {
     test('toCanonicalBytes() produces consistent output for identical internal state', () {
       var p1 = LikedCrdtPayload.create().add(cid1);
       final p1Bytes = p1.toCanonicalBytes();
-      var p1Reconstructed = LikedCrdtPayload.fromBytes(p1.toBytes());
+      var p1Reconstructed = LikedCrdtPayload.fromBytes(p1.toCanonicalBytes());
       expect(p1Reconstructed.toCanonicalBytes(), equals(p1Bytes));
     });
 
@@ -109,7 +109,7 @@ void main() {
       var p1 = LikedCrdtPayload.create().add(cid1);
       var p2 = LikedCrdtPayload.create().add(cid1); // Different tags
       var p3 = LikedCrdtPayload.create().add(cid1);
-      final p3Bytes = p3.toBytes(); // Serialize p3
+      final p3Bytes = p3.toCanonicalBytes(); // Serialize p3
       var p4 = LikedCrdtPayload.fromBytes(p3Bytes); // Reconstruct to get identical p4
 
 

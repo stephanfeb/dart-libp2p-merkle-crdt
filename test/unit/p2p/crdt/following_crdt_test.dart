@@ -108,13 +108,13 @@ void main() {
       expect(merged3.value, equals({did1, did2}));
     });
 
-    test('toBytes() and fromBytes() round trip', () {
+    test('toCanonicalBytes() and fromBytes() round trip', () {
       var payload = FollowingCrdtPayload.create();
       payload = payload.add(did1);
       payload = payload.add(did2);
       payload = payload.remove(did1); // Value is {did2}
 
-      final bytes = payload.toBytes();
+      final bytes = payload.toCanonicalBytes();
       final reconstructed = FollowingCrdtPayload.fromBytes(bytes);
 
       expect(reconstructed.value, equals({did2}));
@@ -141,7 +141,7 @@ void main() {
       var p3 = FollowingCrdtPayload.create().add(did1);
       final p3Bytes = p3.toCanonicalBytes();
       // Reconstruct and check
-      var p3Reconstructed = FollowingCrdtPayload.fromBytes(p3.toBytes());
+      var p3Reconstructed = FollowingCrdtPayload.fromBytes(p3.toCanonicalBytes());
       expect(p3Reconstructed.toCanonicalBytes(), equals(p3Bytes));
 
 
@@ -158,7 +158,7 @@ void main() {
       var p2 = FollowingCrdtPayload.create().add(did1); // Different tags, so not equal
       var p3 = FollowingCrdtPayload.create().add(did1);
       // Manually create p4 to be identical to p3 for testing equality
-      final p3Bytes = p3.toBytes();
+      final p3Bytes = p3.toCanonicalBytes();
       var p4 = FollowingCrdtPayload.fromBytes(p3Bytes);
 
 

@@ -40,9 +40,9 @@ class Actor {
   final ed25519.SigningKey privateKey;
   final ed25519.VerifyKey publicKey;
   final String did; // did:key format
-  late final FollowingCrdtPayload _followingCrdt;
-  late final LikedCrdtPayload _likedCrdt;
-  late final OutboxCrdtPayload _outboxCrdt;
+  late FollowingCrdtPayload _followingCrdt;
+  late LikedCrdtPayload _likedCrdt;
+  late OutboxCrdtPayload _outboxCrdt;
 
   Actor._(this.privateKey, this.publicKey, this.did) {
     _followingCrdt = FollowingCrdtPayload.create();

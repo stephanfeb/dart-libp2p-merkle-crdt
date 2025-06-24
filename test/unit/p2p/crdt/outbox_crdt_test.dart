@@ -82,13 +82,13 @@ void main() {
       expect(toSortedStringList(merged2.value), equals(toSortedStringList([cid1, cid2])));
     });
 
-    test('toBytes and fromBytes round trip', () {
+    test('toCanonicalBytes and fromBytes round trip', () {
       var payload = OutboxCrdtPayload.create();
       payload = payload.add(cid1);
       payload = payload.add(cid3); 
       payload = payload.add(cid2);
 
-      final bytes = payload.toBytes();
+      final bytes = payload.toCanonicalBytes();
       final reconstructed = OutboxCrdtPayload.fromBytes(bytes);
       
       expect(toSortedStringList(reconstructed.value), toSortedStringList(payload.value));

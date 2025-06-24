@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:convert' show jsonEncode, jsonDecode;
 
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 import 'package:dart_cid/dart_cid.dart' show CID;
 
@@ -18,6 +20,8 @@ class OutboxCrdtPayload implements CRDTPayload<List<CID>> {
   factory OutboxCrdtPayload.create() {
     return OutboxCrdtPayload._({});
   }
+
+
 
   @override
   List<CID> get value {
@@ -48,13 +52,6 @@ class OutboxCrdtPayload implements CRDTPayload<List<CID>> {
     final mergedCidStrings = Set<String>.from(_activityCidStrings);
     mergedCidStrings.addAll(other._activityCidStrings);
     return OutboxCrdtPayload._(mergedCidStrings);
-  }
-
-  @override
-  Uint8List toBytes() {
-    // Convert set to list and sort for a somewhat canonical representation in JSON
-    final sortedList = _activityCidStrings.toList()..sort();
-    return Uint8List.fromList(jsonEncode(sortedList).codeUnits);
   }
 
   @override

@@ -122,14 +122,14 @@ void main() {
       expect(merged.value.name, isNull);
     });
 
-    test('Serialization and Deserialization (toBytes/fromBytes)', () {
+    test('Serialization and Deserialization (toCanonicalBytes/fromBytes)', () {
       final iconCid = CID.fromString('bafkreibm6jg3ux5qumhcn2b3flc3tyu6dmlb4xa7u5bf44yegnrjhc4yeq');
       payload = payload.set('name', 'Charlie');
       payload = payload.set('preferredUsername', 'charlie_brown');
       payload = payload.set('summary', 'Good grief!');
       payload = payload.set('icon', iconCid);
 
-      final bytes = payload.toBytes();
+      final bytes = payload.toCanonicalBytes();
       final deserialized = ProfileCrdtPayload.fromBytes(bytes);
 
       expect(deserialized.value.id, equals(testDid));

@@ -339,10 +339,11 @@ class MockPeerstoreImpl implements Peerstore {
   final Map<PeerId, PeerInfo> _peerStore = {};
 
   @override
-  void addOrUpdatePeer(PeerId peerId,
-      {Iterable<MultiAddr>? addrs,
-      Iterable<String>? protocols,
-      Map<String, dynamic>? metadata}) {
+  Future<void> addOrUpdatePeer(PeerId peerId, {
+    List<MultiAddr>? addrs,
+    List<String>? protocols,
+    Map<String, dynamic>? metadata,
+  }) async {
     final existing = _peerStore[peerId];
     if (existing != null) {
       final updatedAddrs =

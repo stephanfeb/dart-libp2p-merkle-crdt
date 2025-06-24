@@ -2,7 +2,9 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart'; // For SetEquality
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 import 'package:uuid/uuid.dart';
 
@@ -59,6 +61,7 @@ class LikedCrdtPayload implements CRDTPayload<Set<CID>> {
     return LikedCrdtPayload._(const {}, const {});
   }
 
+
   @override
   Set<CID> get value {
     final resultSet = <CID>{};
@@ -93,15 +96,6 @@ class LikedCrdtPayload implements CRDTPayload<Set<CID>> {
     final mergedAdds = _adds.union(other._adds);
     final mergedRemoves = _removes.union(other._removes);
     return LikedCrdtPayload._(mergedAdds, mergedRemoves);
-  }
-
-  @override
-  Uint8List toBytes() {
-    final jsonMap = {
-      'adds': _adds.map((e) => e.toJson()).toList(),
-      'removes': _removes.map((e) => e.toJson()).toList(),
-    };
-    return Uint8List.fromList(jsonEncode(jsonMap).codeUnits);
   }
 
   factory LikedCrdtPayload.fromBytes(Uint8List bytes) {

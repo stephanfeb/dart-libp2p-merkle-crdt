@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:convert' show jsonEncode, jsonDecode;
 
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload; // Assuming this path and interface
 import 'package:dart_cid/dart_cid.dart' show CID;
 
@@ -71,6 +73,7 @@ class ProfileCrdtPayload implements CRDTPayload<ProfileData> {
   factory ProfileCrdtPayload.create(String did, Map<String, String> publicKeyJwk) {
     return ProfileCrdtPayload._(did, publicKeyJwk, {});
   }
+
 
   // --- CRDTPayload<ProfileData> implementation ---
 
@@ -160,16 +163,6 @@ class ProfileCrdtPayload implements CRDTPayload<ProfileData> {
       }
     });
     return ProfileCrdtPayload._(_id, _publicKeyJwk, mergedFields);
-  }
-
-  @override
-  Uint8List toBytes() {
-    final jsonMap = {
-      'id': _id,
-      'publicKeyJwk': _publicKeyJwk,
-      'fields': _fields.map((key, entry) => MapEntry(key, entry.toJson())),
-    };
-    return Uint8List.fromList(jsonEncode(jsonMap).codeUnits);
   }
 
   factory ProfileCrdtPayload.fromBytes(Uint8List bytes) {

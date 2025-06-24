@@ -2,6 +2,9 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart'; // For SetEquality
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:dart_cid/dart_cid.dart' as cid_lib;
+import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 import 'package:uuid/uuid.dart';
 
@@ -86,15 +89,6 @@ class FollowingCrdtPayload implements CRDTPayload<Set<String>> {
     final mergedAdds = _adds.union(other._adds);
     final mergedRemoves = _removes.union(other._removes);
     return FollowingCrdtPayload._(mergedAdds, mergedRemoves);
-  }
-
-  @override
-  Uint8List toBytes() {
-    final jsonMap = {
-      'adds': _adds.map((e) => e.toJson()).toList(),
-      'removes': _removes.map((e) => e.toJson()).toList(),
-    };
-    return Uint8List.fromList(jsonEncode(jsonMap).codeUnits);
   }
 
   factory FollowingCrdtPayload.fromBytes(Uint8List bytes) {

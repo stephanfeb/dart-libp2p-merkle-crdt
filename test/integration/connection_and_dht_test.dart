@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert'; // For utf8
 import 'dart:typed_data'; // For Uint8List
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dart_cid/dart_cid.dart';
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
 import 'package:dart_libp2p/core/multiaddr.dart' show MultiAddr;
 import 'package:dart_libp2p/core/peerstore.dart' show AddressTTL;
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart';
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore;
 import 'package:dart_libp2p_kat_dht/src/dht/dht.dart' show IpfsDHT, DHTOptions, DHTMode;
 import 'package:dart_multihash/dart_multihash.dart'; // Added for Multihash and DefaultHashAlg
@@ -46,6 +48,7 @@ class JsonSerializableGSet implements CRDTPayload<Set<String>> {
       _gset.add(item);
     }
   }
+
 
   @override
   Set<String> get value => _gset.value;

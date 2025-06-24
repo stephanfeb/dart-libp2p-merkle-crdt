@@ -156,9 +156,35 @@ void main() {
 
     tearDown(() async {
       _logger.info('Tearing down test nodes...');
-      await nodeA.stop();
-      await nodeB.stop();
-      _logger.info('Test nodes stopped.');
+      
+      // Stop nodes with error handling and timeout
+      final stopFutures = <Future>[];
+      
+      stopFutures.add(
+        nodeA.stop().timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            _logger.warning('Node A stop timed out after 10 seconds');
+          },
+        ).catchError((e) {
+          _logger.warning('Error stopping Node A: $e');
+        })
+      );
+      
+      stopFutures.add(
+        nodeB.stop().timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            _logger.warning('Node B stop timed out after 10 seconds');
+          },
+        ).catchError((e) {
+          _logger.warning('Error stopping Node B: $e');
+        })
+      );
+      
+      // Wait for both nodes to stop (or timeout)
+      await Future.wait(stopFutures, eagerError: false);
+      _logger.info('Test nodes teardown completed.');
     });
 
     test('Node A subscribes, Node B publishes, Node A receives the message', () async {
@@ -184,11 +210,14 @@ void main() {
             _logger.warning('Received message of unexpected type: ${message.runtimeType}');
             return;
           }
+          
           _logger.info('Node A (${nodeA.peerId.toBase58().substring(0,6)}) received message on topic ${message.topic} from ${message.from.toBase58().substring(0,10)}: "${utf8.decode(message.data)}"');
+          
           // PubSubMessage has 'topic' (String) not 'topicIDs' (List<String>)
           if (message.from == nodeB.peerId && message.topic == topicId && utf8.decode(message.data) == messagePayload) {
             if (!messageReceivedCompleter.isCompleted) {
               messageReceivedCompleter.complete(message);
+              _logger.info('Test message validation successful - completing test');
             }
           }
         },
@@ -244,9 +273,19 @@ void main() {
         
         fail('Node A did not receive the message from Node B. Error: $e');
       } finally {
-        await streamSubscription.cancel();
-        await nodeA.pubsub.unsubscribe(topicId); // This should now work
-        _logger.info('Node A (${nodeA.peerId.toBase58().substring(0,6)}) unsubscribed from topic: $topicId');
+        try {
+          await streamSubscription.cancel();
+          _logger.info('Node A stream subscription cancelled');
+        } catch (e) {
+          _logger.warning('Error cancelling stream subscription: $e');
+        }
+        
+        try {
+          await nodeA.pubsub.unsubscribe(topicId);
+          _logger.info('Node A (${nodeA.peerId.toBase58().substring(0,6)}) unsubscribed from topic: $topicId');
+        } catch (e) {
+          _logger.warning('Error unsubscribing from topic: $e');
+        }
       }
     }, timeout: Timeout(Duration(seconds: 45))); // Overall test case timeout
   });
