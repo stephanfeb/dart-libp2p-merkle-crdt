@@ -178,11 +178,8 @@ void main() {
         when(mockHost.connect(mockAddrInfo)).thenAnswer((_) async {});
         when(mockHost.newStream(mockRemotePeerId, [protocolId], any)).thenAnswer((_) async => mockP2PStream);
         
-        final serializedNode = Uint8List.fromList(utf8.encode(json.encode({
-          'cid': testCid.toString(),
-          'children': [],
-          'payload': base64.encode(testNodePayload.toCanonicalBytes()),
-        })));
+        // Use proper merkledag serialization instead of custom JSON
+        final serializedNode = actualTestMerkleNode.toBytes();
         final responseFromServer = 'NODE_DATA ${testCid.toString()} ${base64.encode(serializedNode)}';
         
         when(mockP2PStream.read()).thenAnswer((_) async => Uint8List.fromList(utf8.encode(responseFromServer)));
@@ -191,21 +188,18 @@ void main() {
         when(mockP2PStream.close()).thenAnswer((_) async {}); // Stub close
         when(mockP2PStream.id()).thenReturn('test_stream_id'); // Stub id
 
-
         // Start the get operation
         final getFuture = fetcherWithDht.get(testCid);
 
-        // Emit provider after a short delay to simulate async DHT operation
-        Future(() {
-          providersController.add(mockAddrInfo);
-          providersController.close();
-        });
+        // Emit provider immediately to simulate DHT finding a provider
+        providersController.add(mockAddrInfo);
+        providersController.close();
 
         final result = await getFuture;
 
         expect(result, isNotNull);
         expect(result!.cid, testCid);
-        expect(result.payload, testNodePayload);
+        expect(result.payload.value, testNodePayload.value);
 
         verify(mockBlockStore.get(testCid)).called(1);
         verify(mockDht.findProvidersAsync(testCid.toV1(), 20)).called(1);
