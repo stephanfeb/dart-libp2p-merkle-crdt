@@ -140,7 +140,7 @@ List<MultiAddr> _transformToDialable(List<MultiAddr> addrs) {
 
 class _TestNode {
   late Libp2pNode nodeDetails;
-  late IpfsDHT dht;
+  late IpfsDHTv2 dht;
   late Host host;
   late PeerId peerId;
   late UDX _udxInstance;
@@ -174,7 +174,7 @@ class _TestNode {
 
     // Initialize DHT
     final providerStore = MemoryProviderStore();
-    node.dht = IpfsDHT(
+    node.dht = IpfsDHTv2(
       host: node.host,
       providerStore: providerStore,
       options: const DHTOptions(mode: DHTMode.server),

@@ -4,7 +4,7 @@ import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:dart_libp2p/dart_libp2p.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart' show BasicHost;
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, DHTOptions, DHTMode;
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show DHTMode, DHTOptions, IpfsDHT, IpfsDHTv2;
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore;
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
@@ -28,7 +28,7 @@ class _LikedTestNode {
   late Host host;
   late PeerId peerId;
   late PubSub pubsub;
-  late IpfsDHT dht;
+  late IpfsDHTv2 dht;
   late Actor actor;
   late InMemoryBlockStore<LikedCrdtPayload, Set<CID>> blockStore;
   late P2PStreamDagFetcher<LikedCrdtPayload, Set<CID>> dagFetcher;
@@ -68,7 +68,7 @@ class _LikedTestNode {
     final router = GossipSubRouter();
     helper.pubsub = PubSub(helper.host, router);
     final providerStore = MemoryProviderStore();
-    helper.dht = IpfsDHT(
+    helper.dht = IpfsDHTv2(
       host: helper.host,
       providerStore: providerStore,
       options: const DHTOptions(mode: DHTMode.server),

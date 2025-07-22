@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:dart_libp2p/dart_libp2p.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart' show BasicHost; // Corrected BasicHost import
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, DHTOptions, DHTMode; // For IpfsDHT, DHTOptions, DHTMode
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show DHTMode, DHTOptions, IpfsDHT, IpfsDHTv2; // For IpfsDHT, DHTOptions, DHTMode
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore; // For MemoryProviderStore
 // For NullResourceManager, ConnectionManager, BasicBus if not exported by dart_libp2p
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
@@ -29,7 +29,7 @@ class _ProfileNode {
   late Host host;
   late PeerId peerId;
   late PubSub pubsub;
-  late IpfsDHT dht; // Added DHT instance
+  late IpfsDHTv2 dht; // Added DHT instance
   late Actor actor;
   late InMemoryBlockStore<ProfileCrdtPayload, ProfileData> blockStore;
   late P2PStreamDagFetcher<ProfileCrdtPayload, ProfileData> dagFetcher;
@@ -77,7 +77,7 @@ class _ProfileNode {
 
     // 4. Setup DHT
     final providerStore = MemoryProviderStore();
-    helper.dht = IpfsDHT(
+    helper.dht = IpfsDHTv2(
       host: helper.host,
       providerStore: providerStore,
       options: const DHTOptions(mode: DHTMode.server), // Server mode for test nodes

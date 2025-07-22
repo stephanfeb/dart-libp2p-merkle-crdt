@@ -1,915 +1,622 @@
 # Dart LibP2P Merkle-CRDT Developer Guide
 
-A comprehensive guide for building P2P applications with conflict-free replicated data types (CRDTs) over libp2p networks.
+A practical guide for building P2P applications with conflict-free replicated data types (CRDTs) over libp2p networks.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Quick Start](#quick-start)
-4. [Core Components](#core-components)
-5. [CRDT Payload Implementation](#crdt-payload-implementation)
-6. [Network Layer](#network-layer)
-7. [ActivityPub Integration](#activitypub-integration)
-8. [Best Practices](#best-practices)
-9. [Performance Tuning](#performance-tuning)
+2. [Quick Start](#quick-start)
+3. [Core Concepts](#core-concepts)
+4. [Building Your First CRDT App](#building-your-first-crdt-app)
+5. [Working with Documents](#working-with-documents)
+6. [Storage and Queries](#storage-and-queries)
+7. [Real-time Updates](#real-time-updates)
+8. [Testing Your App](#testing-your-app)
+9. [Production Deployment](#production-deployment)
 10. [Troubleshooting](#troubleshooting)
-11. [Advanced Usage](#advanced-usage)
 
 ## Overview
 
-This library provides a robust foundation for building decentralized applications using Merkle-CRDTs over libp2p networks. It combines the conflict-free properties of CRDTs with the content-addressed storage of Merkle DAGs, enabling reliable P2P data synchronization.
+This library helps you build decentralized applications where multiple users can edit data simultaneously without conflicts. Think Google Docs, but peer-to-peer without a central server.
 
-### Key Features
+### What You Get
 
-- **Merkle-CRDT Integration**: Built on the `merkledag` package for proper CRDT semantics
-- **P2P Networking**: Uses libp2p for peer discovery, content routing, and data exchange
-- **Content Addressing**: All data is content-addressed using CIDs for tamper detection
-- **ActivityPub Support**: Built-in support for ActivityPub-style social networking primitives
-- **Mobile-Friendly**: Designed for mobile P2P environments with network resilience features
+- **Conflict-free data synchronization** - Multiple users can edit simultaneously
+- **Offline-first** - Works without internet, syncs when reconnected
+- **Real-time updates** - See changes from other users instantly
+- **Rich queries** - Search and filter your data efficiently
+- **Mobile-friendly** - Designed for mobile P2P networks
 
-### When to Use This Library
+### When to Use This
 
-✅ **Good for:**
-- Decentralized social networks
-- Collaborative applications
-- P2P content sharing
-- Offline-first applications
-- Applications requiring conflict-free data synchronization
+✅ **Perfect for:**
+- Collaborative editors (documents, whiteboards)
+- Chat applications
+- Social networks
+- Offline-first mobile apps
+- Distributed databases
 
 ❌ **Not suitable for:**
-- Applications requiring strong consistency
-- High-frequency trading systems
-- Applications with strict ordering requirements
-- Simple client-server architectures
-
-## Architecture
-
-The library follows a layered architecture with clear separation of concerns:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                        │
-│  (Your App Logic, Actor, Activities, Notes)                 │
-├─────────────────────────────────────────────────────────────┤
-│                 CRDT Management Layer                       │
-│              MerkleCrdtGossipManager                        │
-├─────────────────────────────────────────────────────────────┤
-│                   Network Layer                             │
-│  ┌─────────────────┐  ┌─────────────────┐                   │
-│  │  GossipSub      │  │  P2PStreamDag   │                   │
-│  │  Announcer      │  │  Fetcher        │                   │
-│  └─────────────────┘  └─────────────────┘                   │
-├─────────────────────────────────────────────────────────────┤
-│                  Storage Layer                              │
-│  ┌─────────────────┐  ┌─────────────────┐                   │
-│  │   BlockStore    │  │   DHTProvider   │                   │
-│  └─────────────────┘  └─────────────────┘                   │
-├─────────────────────────────────────────────────────────────┤
-│                 LibP2P Foundation                           │
-│        (Host, PubSub, DHT, Streams)                         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Responsibilities
-
-- **MerkleCrdtGossipManager**: High-level CRDT state management and event handling
-- **P2PStreamDagFetcher**: DAG node synchronization over P2P streams
-- **GossipSubAnnouncer**: Head CID announcements via GossipSub
-- **BlockStore**: Local content-addressed storage
-- **DHTProvider**: Content discovery and routing
-- **P2PNodeProtocol**: Low-level P2P message handling
+- Banking/financial systems (need strong consistency)
+- Real-time gaming (need low latency)
+- Simple CRUD apps (overkill)
 
 ## Quick Start
 
-### 1. Add Dependencies
+### 1. Installation
 
 ```yaml
 dependencies:
   dart_libp2p_merkle_crdt: ^1.0.0
-  dart_libp2p: ^1.0.0
-  merkledag: ^1.0.0
 ```
 
 ### 2. Basic Setup
 
 ```dart
 import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart';
-import 'package:dart_libp2p/dart_libp2p.dart';
 
-// Create libp2p host
-final host = await createLibp2pHost();
+// Create your app
+final app = await CRDTApp.create();
 
-// Create storage components
-final blockStore = MemoryBlockStore<MyPayload, String>();
-final dagFetcher = P2PStreamDagFetcher<MyPayload, String>(
-  host,
-  blockStore,
-  '/my-app/dag-sync/1.0.0',
-  myPayloadFactory,
-  dht: host.dht, // Optional DHT for content discovery
-);
-
-// Create announcer for head CID broadcasts
-final announcer = GossipSubAnnouncer(
-  host.pubsub,
-  '/my-app/heads/1.0.0',
-);
-
-// Create the main CRDT manager
-final crdtManager = MerkleCrdtGossipManager<String, MyPayload>(
-  dagFetcher: dagFetcher,
-  announcer: announcer,
-);
-
-// Listen for state changes
-crdtManager.onStateChanged.listen((newState) {
-  print('CRDT state updated: $newState');
+// Listen for changes
+app.onDataChanged.listen((data) {
+  print('Data updated: $data');
 });
 
-// Apply local updates
-await crdtManager.applyLocalUpdate(MyPayload('new data'));
+// Make changes
+await app.updateData({'message': 'Hello, world!'});
 ```
 
-### 3. Define Your CRDT Payload
+### 3. That's It!
+
+Your app now automatically syncs data between all connected peers. No servers needed.
+
+## Core Concepts
+
+### CRDTs (Conflict-free Replicated Data Types)
+
+Think of CRDTs as "smart data structures" that automatically resolve conflicts when multiple people edit the same data simultaneously.
+
+**Key Properties:**
+- **Commutative**: Order doesn't matter - `merge(A, B) = merge(B, A)`
+- **Associative**: Grouping doesn't matter - `merge(A, merge(B, C)) = merge(merge(A, B), C)`
+- **Idempotent**: Applying twice is safe - `merge(A, A) = A`
+
+### Vector Clocks
+
+Vector clocks track "who did what when" without needing synchronized clocks. Each user has their own logical clock that increments with each change.
 
 ```dart
-class MyPayload implements CRDTPayload<String> {
-  final String _data;
+// Alice makes change 1, Bob makes change 1
+alice: {alice: 1, bob: 0}
+bob:   {alice: 0, bob: 1}
+
+// After sync, both have
+both:  {alice: 1, bob: 1}
+```
+
+### Content Addressing
+
+Every piece of data gets a unique fingerprint (CID). If the data changes, the fingerprint changes. This prevents tampering and enables efficient syncing.
+
+## Building Your First CRDT App
+
+Let's build a simple collaborative note-taking app.
+
+### Step 1: Define Your Data Structure
+
+```dart
+class Note {
+  final String id;
+  final String title;
+  final String content;
+  final String author;
+  final DateTime lastModified;
   
-  MyPayload(this._data);
+  Note({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.author,
+    required this.lastModified,
+  });
+}
+```
+
+### Step 2: Create a CRDT Wrapper
+
+```dart
+class NoteCRDT implements CRDTPayload<Note> {
+  final DocumentCrdt _document;
   
-  @override
-  String get value => _data;
+  NoteCRDT._(this._document);
   
-  @override
-  MyPayload merge(covariant MyPayload other) {
-    // Implement your merge logic
-    return MyPayload('${_data}_${other._data}');
+  factory NoteCRDT.create(String authorId, Note note) {
+    return NoteCRDT._(DocumentCrdt.create(authorId, {
+      'id': note.id,
+      'title': note.title,
+      'content': note.content,
+      'author': note.author,
+      'lastModified': note.lastModified.toIso8601String(),
+    }));
   }
   
   @override
-  Uint8List toCanonicalBytes() {
-    return Uint8List.fromList(utf8.encode(_data));
+  Note get value {
+    final data = _document.data;
+    return Note(
+      id: data['id'],
+      title: data['title'],
+      content: data['content'],
+      author: data['author'],
+      lastModified: DateTime.parse(data['lastModified']),
+    );
   }
   
-  static MyPayload fromCanonicalBytes(Uint8List bytes) {
-    return MyPayload(utf8.decode(bytes));
-  }
-}
-
-// Factory function for deserialization
-MyPayload myPayloadFactory(Uint8List bytes) {
-  return MyPayload.fromCanonicalBytes(bytes);
-}
-```
-
-## Core Components
-
-### MerkleCrdtGossipManager
-
-The main interface for CRDT operations. Manages state, handles network events, and provides reactive streams.
-
-#### Key Methods
-
-```dart
-// Apply local updates
-await manager.applyLocalUpdate(payload);
-
-// Get current state
-final currentState = await manager.getState();
-final cachedState = manager.currentState; // Synchronous cached access
-
-// Get latest CID
-final latestCid = manager.latestKnownCid;
-
-// Force re-announcement (useful for mobile networks)
-await manager.forceAnnounceCurrentHead();
-
-// Listen to changes
-manager.onStateChanged.listen((state) => handleStateChange(state));
-manager.onCidChanged.listen((cid) => handleNewHead(cid));
-```
-
-#### Configuration Options
-
-```dart
-final manager = MerkleCrdtGossipManager<V, P>(
-  dagFetcher: dagFetcher,
-  announcer: announcer,
-  loggerName: 'MyApp.CRDT', // Custom logger name
-);
-```
-
-### P2PStreamDagFetcher
-
-Implements the `DAGSyncer<P>` interface for content synchronization.
-
-#### Key Features
-
-- **Content Discovery**: Uses DHT to find providers
-- **Stream-based Sync**: Direct P2P streams for efficient data transfer
-- **Content Verification**: Cryptographic verification of all received data
-- **Mobile Resilience**: Timeout handling and retry logic
-
-#### Usage
-
-```dart
-// The fetcher is typically used internally by MerkleCrdtGossipManager
-// but can be used directly for advanced use cases
-
-// Get a node by CID
-final node = await dagFetcher.get(cid);
-
-// Store a node
-await dagFetcher.put(node);
-
-// Check DHT availability
-if (dagFetcher.isDHTAvailable) {
-  print('DHT is available for content discovery');
-}
-
-// Get statistics
-final stats = dagFetcher.getStats();
-print('DAG Syncer Stats: $stats');
-```
-
-### BlockStore
-
-Content-addressed storage interface. Implement this for your storage backend.
-
-```dart
-abstract class BlockStore<P extends CRDTPayload<V>, V> {
-  Future<MerkleNode<P>?> get(CID cid);
-  Future<void> put(MerkleNode<P> node);
-}
-
-// Example implementation
-class MyBlockStore implements BlockStore<MyPayload, String> {
-  final Map<String, MerkleNode<MyPayload>> _storage = {};
-  
-  @override
-  Future<MerkleNode<MyPayload>?> get(CID cid) async {
-    return _storage[cid.toString()];
-  }
-  
-  @override
-  Future<void> put(MerkleNode<MyPayload> node) async {
-    _storage[node.cid.toString()] = node;
-  }
-}
-```
-
-## CRDT Payload Implementation
-
-### Required Interface
-
-All CRDT payloads must implement `CRDTPayload<V>`:
-
-```dart
-abstract class CRDTPayload<V> {
-  /// The logical value of this CRDT state
-  V get value;
-  
-  /// Merge this payload with another, resolving conflicts
-  CRDTPayload<V> merge(covariant CRDTPayload<V> other);
-  
-  /// Serialize to canonical bytes for content addressing
-  Uint8List toCanonicalBytes();
-}
-```
-
-### Implementation Guidelines
-
-#### 1. Deterministic Serialization
-
-```dart
-@override
-Uint8List toCanonicalBytes() {
-  // MUST be deterministic - same logical state = same bytes
-  final map = <String, dynamic>{
-    'type': 'MyPayload',
-    'data': _data,
-    'timestamp': _timestamp,
-  };
-  
-  // Sort keys for deterministic JSON
-  final sortedKeys = map.keys.toList()..sort();
-  final sortedMap = {for (var key in sortedKeys) key: map[key]};
-  
-  return Uint8List.fromList(utf8.encode(jsonEncode(sortedMap)));
-}
-```
-
-#### 2. Conflict-Free Merge Logic
-
-```dart
-@override
-MyPayload merge(covariant MyPayload other) {
-  // Example: Last-Writer-Wins with tie-breaking
-  if (_timestamp > other._timestamp) {
-    return this;
-  } else if (_timestamp < other._timestamp) {
-    return other;
-  } else {
-    // Tie-breaking: use lexicographic order
-    return _data.compareTo(other._data) >= 0 ? this : other;
-  }
-}
-```
-
-#### 3. Built-in CRDT Types
-
-The library provides several pre-built CRDT types:
-
-##### GSet (Grow-only Set)
-```dart
-import 'package:merkledag/merkledag.dart' show GSet;
-
-// Use directly - no wrapper needed
-final gset = GSet<String>();
-final updated = gset.add('item');
-
-// Factory for deserialization
-GSet<String> gsetFactory(Uint8List bytes) {
-  return GSet.fromCanonicalBytes(bytes);
-}
-```
-
-##### LWW-Map (Last-Writer-Wins Map)
-```dart
-// See ProfileCrdtPayload for a complete example
-class ProfileCrdtPayload implements CRDTPayload<ProfileData> {
-  final Map<String, LwwEntry<dynamic>> _fields;
-  
-  ProfileCrdtPayload set(String key, dynamic value) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final newFields = Map.from(_fields);
-    newFields[key] = LwwEntry(value, timestamp);
-    return ProfileCrdtPayload._(_id, _publicKeyJwk, newFields);
-  }
-  
-  @override
-  ProfileCrdtPayload merge(covariant ProfileCrdtPayload other) {
-    final mergedFields = Map<String, LwwEntry<dynamic>>.from(_fields);
-    
-    other._fields.forEach((key, otherEntry) {
-      final localEntry = mergedFields[key];
-      if (localEntry == null || otherEntry.timestamp > localEntry.timestamp) {
-        mergedFields[key] = otherEntry;
-      } else if (otherEntry.timestamp == localEntry.timestamp) {
-        // Tie-breaking logic
-        if (otherEntry.value.toString().compareTo(localEntry.value.toString()) > 0) {
-          mergedFields[key] = otherEntry;
-        }
-      }
+  NoteCRDT updateTitle(String authorId, String newTitle) {
+    final updated = _document.update(authorId, {
+      'title': newTitle,
+      'lastModified': DateTime.now().toIso8601String(),
     });
+    return NoteCRDT._(updated);
+  }
+  
+  NoteCRDT updateContent(String authorId, String newContent) {
+    final updated = _document.update(authorId, {
+      'content': newContent,
+      'lastModified': DateTime.now().toIso8601String(),
+    });
+    return NoteCRDT._(updated);
+  }
+  
+  @override
+  NoteCRDT merge(covariant NoteCRDT other) {
+    return NoteCRDT._(_document.merge(other._document));
+  }
+  
+  @override
+  Uint8List toCanonicalBytes() => _document.toCanonicalBytes();
+}
+```
+
+### Step 3: Set Up Networking
+
+```dart
+class NoteApp {
+  late final MerkleCrdtGossipManager<Note, NoteCRDT> _manager;
+  final String _userId;
+  
+  NoteApp._(this._userId, this._manager);
+  
+  static Future<NoteApp> create(String userId) async {
+    final host = await createLibp2pHost();
+    final blockStore = InMemoryBlockStore<NoteCRDT, Note>();
     
-    return ProfileCrdtPayload._(_id, _publicKeyJwk, mergedFields);
+    final dagFetcher = P2PStreamDagFetcher<NoteCRDT, Note>(
+      host, blockStore, '/notes/sync/1.0.0', NoteCRDT.fromBytes,
+    );
+    
+    final announcer = GossipSubAnnouncer(host.pubsub, '/notes/heads/1.0.0');
+    
+    final manager = MerkleCrdtGossipManager<Note, NoteCRDT>(
+      dagFetcher: dagFetcher,
+      announcer: announcer,
+    );
+    
+    return NoteApp._(userId, manager);
+  }
+  
+  Stream<Note?> get noteStream => _manager.onStateChanged;
+  
+  Future<void> createNote(String title, String content) async {
+    final note = Note(
+      id: generateId(),
+      title: title,
+      content: content,
+      author: _userId,
+      lastModified: DateTime.now(),
+    );
+    
+    final crdt = NoteCRDT.create(_userId, note);
+    await _manager.applyLocalUpdate(crdt);
+  }
+  
+  Future<void> updateTitle(String newTitle) async {
+    final current = await _manager.getState();
+    if (current != null) {
+      final currentCRDT = NoteCRDT.create(_userId, current);
+      final updated = currentCRDT.updateTitle(_userId, newTitle);
+      await _manager.applyLocalUpdate(updated);
+    }
   }
 }
 ```
 
-## Network Layer
-
-### GossipSub Integration
-
-The library uses GossipSub for efficient head CID announcements:
+### Step 4: Use in Your UI
 
 ```dart
-final announcer = GossipSubAnnouncer(
-  pubsub,
-  '/my-app/heads/1.0.0', // Topic for head announcements
-);
+class NoteEditor extends StatefulWidget {
+  @override
+  _NoteEditorState createState() => _NoteEditorState();
+}
 
-// The announcer is used internally by MerkleCrdtGossipManager
-// but can be used directly:
-await announcer.broadcast('QmHash...');
-```
-
-### DHT Integration
-
-DHT is used for content discovery and provider announcements:
-
-```dart
-// DHT is optional but recommended for content discovery
-final dagFetcher = P2PStreamDagFetcher<MyPayload, String>(
-  host,
-  blockStore,
-  protocolId,
-  payloadFactory,
-  dht: host.dht, // Enable DHT integration
-);
-
-// Check DHT status
-if (dagFetcher.isDHTAvailable) {
-  print('DHT enabled for content discovery');
+class _NoteEditorState extends State<NoteEditor> {
+  late NoteApp _app;
+  Note? _currentNote;
+  
+  @override
+  void initState() {
+    super.initState();
+    _initApp();
+  }
+  
+  void _initApp() async {
+    _app = await NoteApp.create('user123');
+    
+    _app.noteStream.listen((note) {
+      setState(() {
+        _currentNote = note;
+      });
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_currentNote == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    return Column(
+      children: [
+        TextField(
+          value: _currentNote!.title,
+          onChanged: (title) => _app.updateTitle(title),
+          decoration: InputDecoration(labelText: 'Title'),
+        ),
+        Expanded(
+          child: TextField(
+            value: _currentNote!.content,
+            onChanged: (content) => _app.updateContent(content),
+            maxLines: null,
+            decoration: InputDecoration(labelText: 'Content'),
+          ),
+        ),
+        Text('Last modified by: ${_currentNote!.author}'),
+      ],
+    );
+  }
 }
 ```
 
-### Protocol Configuration
+## Working with Documents
+
+The `DocumentCRDT` is perfect for structured data like forms, profiles, or settings.
+
+### Creating Documents
 
 ```dart
-// Use versioned protocol IDs for compatibility
-const DAG_SYNC_PROTOCOL = '/my-app/dag-sync/1.0.0';
-const HEAD_TOPIC = '/my-app/heads/1.0.0';
-
-// Consider network-specific prefixes
-const TESTNET_PREFIX = '/testnet';
-const MAINNET_PREFIX = '/mainnet';
-```
-
-## ActivityPub Integration
-
-The library includes built-in support for ActivityPub-style social networking.
-
-### Actor System
-
-```dart
-// Create an actor (identity)
-final actor = await Actor.create();
-print('Actor DID: ${actor.did}');
-print('Public Key: ${actor.publicKeyJwk}');
-
-// Create and sign content
-final noteResult = await actor.createNote("Hello, decentralized world!");
-final activityResult = await actor.createAndSignActivity(
-  objectCid: noteResult.noteCid,
-);
-
-// Social actions
-final followResult = await actor.follow('did:key:other-actor');
-final likeResult = await actor.like(someContentCid);
-final announceResult = await actor.announce(someActivityCid);
-
-// Access CRDT states
-final following = actor.following; // Set<String>
-final liked = actor.likedItems; // Set<CID>
-final outbox = actor.outboxActivities; // List<CID>
-```
-
-### Activity Types
-
-The library supports standard ActivityPub activities:
-
-```dart
-// Create activities
-final createActivity = CreateActivity(
-  actor: actor.did,
-  object: noteCid,
-  published: DateTime.now().toUtc(),
-);
-
-// Follow activities
-final followActivity = FollowActivity(
-  actor: actor.did,
-  objectDid: targetDid,
-  published: DateTime.now().toUtc(),
-);
-
-// Like activities
-final likeActivity = LikeActivity(
-  actor: actor.did,
-  objectCid: contentCid,
-  published: DateTime.now().toUtc(),
-);
-
-// Announce (boost/retweet) activities
-final announceActivity = AnnounceActivity(
-  actor: actor.did,
-  object: activityCid,
-  published: DateTime.now().toUtc(),
-);
-
-// Delete activities
-final deleteActivity = DeleteActivity(
-  actor: actor.did,
-  object: contentCid,
-  published: DateTime.now().toUtc(),
-);
-```
-
-### CRDT Integration
-
-Integrate Actor CRDTs with the network layer:
-
-```dart
-// Create managers for each CRDT type
-final followingManager = MerkleCrdtGossipManager<Set<String>, FollowingCrdtPayload>(
-  dagFetcher: followingDagFetcher,
-  announcer: followingAnnouncer,
-);
-
-final outboxManager = MerkleCrdtGossipManager<List<CID>, OutboxCrdtPayload>(
-  dagFetcher: outboxDagFetcher,
-  announcer: outboxAnnouncer,
-);
-
-// Sync actor state with network
-await followingManager.applyLocalUpdate(actor.followingCrdtPayload);
-await outboxManager.applyLocalUpdate(actor.outboxCrdtPayload);
-
-// Listen for remote updates
-followingManager.onStateChanged.listen((following) {
-  // Handle remote follow/unfollow events
-  updateUI(following);
+// Create a user profile
+final profile = DocumentCrdt.create('alice', {
+  'name': 'Alice Smith',
+  'email': 'alice@example.com',
+  'bio': 'Software developer',
+  'avatar': 'https://example.com/alice.jpg',
 });
 ```
 
-## Best Practices
-
-### 1. CRDT Design
-
-#### ✅ Do:
-- Design for commutativity: `merge(a, b) == merge(b, a)`
-- Make merge operations idempotent: `merge(a, a) == a`
-- Use deterministic serialization
-- Include timestamps for LWW semantics
-- Design for your specific conflict resolution needs
-
-#### ❌ Don't:
-- Rely on operation ordering
-- Use non-deterministic data in payloads (random numbers, etc.)
-- Create circular references in merge logic
-- Ignore the performance implications of large CRDTs
-
-### 2. Network Architecture
-
-#### ✅ Do:
-- Use versioned protocol IDs
-- Implement proper error handling and timeouts
-- Design for mobile/intermittent connectivity
-- Use content addressing for tamper detection
-- Implement proper backpressure handling
-
-#### ❌ Don't:
-- Bypass the DAGSyncer interface
-- Ignore DHT availability in mobile environments
-- Use blocking operations in event handlers
-- Forget to handle network partitions
-
-### 3. Performance Optimization
-
-#### ✅ Do:
-- Implement efficient BlockStore backends
-- Use appropriate cache sizes
-- Monitor DAG growth
-- Implement batching for bulk operations
-- Use lazy loading for large datasets
-
-#### ❌ Don't:
-- Keep unlimited data in memory
-- Ignore serialization performance
-- Create overly deep DAG structures
-- Forget to clean up resources
-
-### 4. Security Considerations
-
-#### ✅ Do:
-- Verify all received content against CIDs
-- Implement proper signature verification
-- Use secure random number generation
-- Validate input data thoroughly
-- Implement rate limiting
-
-#### ❌ Don't:
-- Trust unverified content
-- Ignore signature validation
-- Store sensitive data in CRDTs
-- Forget about DoS attack vectors
-
-## Performance Tuning
-
-### Memory Management
+### Updating Fields
 
 ```dart
-// Configure cache sizes based on your environment
-final blockStore = LRUBlockStore<MyPayload, String>(
-  maxSize: 1000, // Adjust based on available memory
-);
-
-// Monitor memory usage
-final stats = dagFetcher.getStats();
-print('Memory usage: ${stats['memory_usage']}');
+// Alice updates her bio
+final updated = profile.update('alice', {
+  'bio': 'Senior Software Developer at ACME Corp',
+  'location': 'San Francisco, CA',
+});
 ```
 
-### Network Optimization
+### Handling Conflicts
+
+When two users edit the same field simultaneously, DocumentCRDT uses Last-Writer-Wins with deterministic tie-breaking:
 
 ```dart
-// Batch operations when possible
-final updates = <MyPayload>[
-  MyPayload('update1'),
-  MyPayload('update2'),
-  MyPayload('update3'),
-];
+// Alice and Bob both update the bio at the same time
+final aliceUpdate = profile.update('alice', {'bio': 'Alice bio'});
+final bobUpdate = profile.update('bob', {'bio': 'Bob bio'});
 
-// Apply in batch (if your CRDT supports it)
-for (final update in updates) {
-  await manager.applyLocalUpdate(update);
+// Merge resolves the conflict
+final merged = aliceUpdate.merge(bobUpdate);
+// Winner is determined by timestamp, then lexicographic order
+```
+
+### Best Practices
+
+- **Keep documents reasonably sized** - Large documents are slower to sync
+- **Use meaningful field names** - They're part of the permanent data structure
+- **Include metadata** - Timestamps, authors, etc. help with debugging
+- **Test conflict scenarios** - Simulate concurrent edits in your tests
+
+## Storage and Queries
+
+The BlockStore system provides persistent storage with rich querying capabilities.
+
+### Basic Storage
+
+```dart
+final blockStore = InMemoryBlockStore<NoteCRDT, Note>(
+  fieldExtractor: NoteFieldExtractor(),
+);
+
+// Store a note
+await blockStore.put(noteNode);
+
+// Retrieve a note
+final note = await blockStore.get(cid);
+```
+
+### Querying Data
+
+```dart
+// Find recent notes by Alice
+final query = BlockQuery()
+  ..where('author', isEqualTo: 'alice')
+  ..where('lastModified', isGreaterThan: DateTime.now().subtract(Duration(days: 7)))
+  ..orderBy('lastModified', descending: true)
+  ..limit(10);
+
+final results = await blockStore.query(query);
+```
+
+### Custom Storage Backends
+
+For production apps, implement custom storage backends:
+
+```dart
+class SQLiteBlockStore implements BlockStore<NoteCRDT, Note> {
+  // Implement using your preferred database
+  // See blockstore-developer-guide.md for details
 }
-
-// Or implement custom batching logic
 ```
 
-### DHT Configuration
+### Field Extraction
+
+Define how to extract searchable fields from your data:
 
 ```dart
-// Tune DHT parameters for your network
-final dhtConfig = DHTConfig(
-  findProvidersTimeout: Duration(seconds: 10),
-  maxProviders: 20,
-  provideTimeout: Duration(seconds: 5),
-);
-```
-
-### Mobile Optimization
-
-```dart
-// Use mobile-friendly settings
-await manager.forceAnnounceCurrentHead(
-  maxRetries: 5,
-  retryDelay: Duration(seconds: 3),
-);
-
-// Monitor network state
-if (await isNetworkAvailable()) {
-  await manager.refreshState();
+class NoteFieldExtractor implements FieldExtractor<NoteCRDT> {
+  @override
+  Map<String, dynamic> extractFields(NoteCRDT payload) {
+    final note = payload.value;
+    return {
+      'title': note.title,
+      'author': note.author,
+      'lastModified': note.lastModified.toIso8601String(),
+      'wordCount': note.content.split(' ').length,
+    };
+  }
 }
+```
+
+## Real-time Updates
+
+Get notified when data changes in real-time.
+
+### Change Notifications
+
+```dart
+// Listen to all changes
+blockStore.changeStream.listen((event) {
+  switch (event.type) {
+    case ChangeEventType.created:
+      print('New note created');
+      break;
+    case ChangeEventType.updated:
+      print('Note updated');
+      break;
+    case ChangeEventType.deleted:
+      print('Note deleted');
+      break;
+  }
+});
+```
+
+### Filtered Subscriptions
+
+```dart
+// Only listen to changes from specific users
+final subscription = blockStore.subscribe(
+  filter: (event) {
+    final note = event.payload?.value;
+    return note?.author == 'alice';
+  },
+);
+
+subscription.stream.listen((event) {
+  print('Alice made a change: ${event.type}');
+});
+```
+
+### Streaming Queries
+
+```dart
+// Get live updates for a query
+final query = BlockQuery()..where('author', isEqualTo: 'alice');
+final stream = blockStore.queryStream(query);
+
+stream.listen((results) {
+  print('Alice has ${results.length} notes');
+  // UI automatically updates
+});
+```
+
+## Testing Your App
+
+### Unit Tests
+
+Test your CRDT logic:
+
+```dart
+test('should merge concurrent updates correctly', () {
+  final base = DocumentCrdt.create('alice', {'counter': 0});
+  
+  final update1 = base.update('alice', {'counter': 1});
+  final update2 = base.update('bob', {'counter': 2});
+  
+  final merged = update1.merge(update2);
+  
+  // Test that merge is deterministic
+  expect(merged.data['counter'], isA<int>());
+});
+```
+
+### Integration Tests
+
+Test the full sync process:
+
+```dart
+test('should sync between peers', () async {
+  final peer1 = await createTestPeer();
+  final peer2 = await createTestPeer();
+  
+  await connectPeers(peer1, peer2);
+  
+  // Peer1 creates data
+  await peer1.createNote('Test', 'Content');
+  
+  // Wait for sync
+  await Future.delayed(Duration(seconds: 1));
+  
+  // Peer2 should have the data
+  final peer2Data = await peer2.getCurrentNote();
+  expect(peer2Data?.title, equals('Test'));
+});
+```
+
+### Performance Tests
+
+```dart
+test('should handle many concurrent updates', () async {
+  final stopwatch = Stopwatch()..start();
+  
+  var doc = DocumentCrdt.create('alice', {'counter': 0});
+  
+  for (int i = 0; i < 1000; i++) {
+    doc = doc.update('alice', {'counter': i});
+  }
+  
+  stopwatch.stop();
+  expect(stopwatch.elapsedMilliseconds, lessThan(1000));
+});
+```
+
+## Production Deployment
+
+### Database Backend
+
+Use a proper database for production:
+
+```dart
+// SQLite example
+final db = await openDatabase('app.db');
+final blockStore = SQLiteBlockStore(db, fieldExtractor);
+```
+
+### Network Configuration
+
+Configure for your network environment:
+
+```dart
+final host = await createLibp2pHost(
+  listenAddresses: ['/ip4/0.0.0.0/tcp/0'],
+  enableDHT: true,
+  enableRelay: true, // For mobile networks
+);
+```
+
+### Error Handling
+
+```dart
+try {
+  await manager.applyLocalUpdate(payload);
+} catch (e) {
+  // Log error and show user-friendly message
+  logger.error('Failed to save changes: $e');
+  showErrorDialog('Could not save changes. Please try again.');
+}
+```
+
+### Monitoring
+
+```dart
+// Monitor sync status
+manager.onCidChanged.listen((cid) {
+  logger.info('Synced to CID: $cid');
+});
+
+// Monitor peer connections
+host.network.onPeerConnected.listen((peer) {
+  logger.info('Connected to peer: $peer');
+});
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 1. Content Not Syncing
+**Data not syncing between peers**
+- Check network connectivity
+- Verify protocol IDs match
+- Ensure DHT is enabled
+- Check firewall settings
 
-**Symptoms**: Remote updates not appearing locally
+**High memory usage**
+- Implement LRU cache in BlockStore
+- Monitor DAG growth
+- Use pagination for large datasets
 
-**Possible Causes**:
-- DHT connectivity issues
-- GossipSub subscription problems
-- Firewall blocking P2P connections
-- Incorrect protocol IDs
+**Slow performance**
+- Add indexes to frequently queried fields
+- Use batch operations
+- Implement lazy loading
 
-**Solutions**:
-```dart
-// Check DHT availability
-if (!dagFetcher.isDHTAvailable) {
-  print('DHT not available - check network connectivity');
-}
+**Merge conflicts**
+- Test your merge logic thoroughly
+- Use deterministic serialization
+- Include timestamps in your data
 
-// Verify protocol IDs match across peers
-const PROTOCOL_ID = '/my-app/dag-sync/1.0.0';
+### Debug Tools
 
-// Check GossipSub subscriptions
-final topics = pubsub.getSubscribedTopics();
-print('Subscribed topics: $topics');
-
-// Force refresh
-await manager.refreshState();
-```
-
-#### 2. High Memory Usage
-
-**Symptoms**: Memory usage growing over time
-
-**Possible Causes**:
-- Unbounded cache growth
-- Memory leaks in event handlers
-- Large CRDT payloads
-
-**Solutions**:
-```dart
-// Implement bounded storage
-final blockStore = LRUBlockStore<MyPayload, String>(maxSize: 1000);
-
-// Monitor and clean up
-Timer.periodic(Duration(minutes: 5), (_) {
-  final stats = dagFetcher.getStats();
-  if (stats['cache_size'] > 1000) {
-    // Implement cleanup logic
-  }
-});
-
-// Use weak references for event handlers
-```
-
-#### 3. Merge Conflicts
-
-**Symptoms**: Unexpected CRDT states after merging
-
-**Possible Causes**:
-- Non-commutative merge logic
-- Non-deterministic serialization
-- Clock synchronization issues
-
-**Solutions**:
-```dart
-// Test merge commutativity
-final a = MyPayload('a');
-final b = MyPayload('b');
-assert(a.merge(b).value == b.merge(a).value);
-
-// Use logical timestamps instead of wall clock
-class MyPayload implements CRDTPayload<String> {
-  final int logicalClock;
-  
-  MyPayload merge(covariant MyPayload other) {
-    final newClock = math.max(logicalClock, other.logicalClock) + 1;
-    // ... merge logic
-  }
-}
-```
-
-### Debugging Tools
-
-#### Enable Debug Logging
+Enable detailed logging:
 
 ```dart
-import 'package:logging/logging.dart';
-
 Logger.root.level = Level.FINE;
 Logger.root.onRecord.listen((record) {
-  print('${record.level.name}: ${record.loggerName}: ${record.message}');
-});
-
-// Create manager with custom logger
-final manager = MerkleCrdtGossipManager<V, P>(
-  dagFetcher: dagFetcher,
-  announcer: announcer,
-  loggerName: 'MyApp.Debug',
-);
-```
-
-#### Monitor Network Activity
-
-```dart
-// Check peer connections
-final peers = host.network.peers;
-print('Connected peers: ${peers.length}');
-
-// Monitor DHT activity
-final dhtStats = dagFetcher.getStats();
-print('DHT stats: $dhtStats');
-
-// Track CRDT operations
-manager.onStateChanged.listen((state) {
-  print('State changed: $state');
-});
-
-manager.onCidChanged.listen((cid) {
-  print('New head CID: $cid');
+  print('${record.level.name}: ${record.message}');
 });
 ```
 
-## Advanced Usage
-
-### Custom CRDT Types
-
-Implement domain-specific CRDTs:
+Monitor network activity:
 
 ```dart
-class CounterCRDT implements CRDTPayload<int> {
-  final Map<String, int> _counts;
-  
-  CounterCRDT(this._counts);
-  
-  @override
-  int get value => _counts.values.fold(0, (a, b) => a + b);
-  
-  CounterCRDT increment(String actorId) {
-    final newCounts = Map<String, int>.from(_counts);
-    newCounts[actorId] = (newCounts[actorId] ?? 0) + 1;
-    return CounterCRDT(newCounts);
-  }
-  
-  @override
-  CounterCRDT merge(covariant CounterCRDT other) {
-    final merged = Map<String, int>.from(_counts);
-    other._counts.forEach((actor, count) {
-      merged[actor] = math.max(merged[actor] ?? 0, count);
-    });
-    return CounterCRDT(merged);
-  }
-  
-  @override
-  Uint8List toCanonicalBytes() {
-    final sortedEntries = _counts.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    final map = Map.fromEntries(sortedEntries);
-    return Uint8List.fromList(utf8.encode(jsonEncode(map)));
-  }
-}
+final stats = dagFetcher.getStats();
+print('Connected peers: ${stats['peer_count']}');
+print('Synced blocks: ${stats['block_count']}');
 ```
 
-### Multi-CRDT Applications
+### Getting Help
 
-Manage multiple CRDTs in a single application:
-
-```dart
-class MultiCRDTApp {
-  final Map<String, MerkleCrdtGossipManager> _managers = {};
-  
-  Future<void> addCRDT<V, P extends CRDTPayload<V>>(
-    String name,
-    MerkleCrdtGossipManager<V, P> manager,
-  ) async {
-    _managers[name] = manager;
-    
-    // Cross-CRDT event handling
-    manager.onStateChanged.listen((state) {
-      _handleCRDTUpdate(name, state);
-    });
-  }
-  
-  void _handleCRDTUpdate(String crdtName, dynamic state) {
-    // Implement cross-CRDT logic
-    switch (crdtName) {
-      case 'following':
-        _updateFollowingUI(state);
-        break;
-      case 'posts':
-        _updatePostsUI(state);
-        break;
-    }
-  }
-}
-```
-
-### Custom Network Protocols
-
-Extend the networking layer:
-
-```dart
-class CustomP2PProtocol extends P2PNodeProtocol<MyPayload, String> {
-  CustomP2PProtocol(
-    Host host,
-    String protocolId,
-    MyPayload Function(Uint8List) payloadFactory,
-    Future<MerkleNode<MyPayload>?> Function(CID) localNodeGetter,
-  ) : super(host, protocolId, payloadFactory, localNodeGetter);
-  
-  @override
-  Future<void> handleCustomMessage(String message, P2PStream stream) async {
-    if (message.startsWith('CUSTOM_REQUEST ')) {
-      // Handle custom protocol messages
-      await _handleCustomRequest(message, stream);
-    } else {
-      // Delegate to parent
-      await super.handleIncomingMessage(message, stream);
-    }
-  }
-}
-```
-
-### Integration with External Systems
-
-Bridge with traditional databases:
-
-```dart
-class DatabaseBridge<V, P extends CRDTPayload<V>> {
-  final MerkleCrdtGossipManager<V, P> _crdtManager;
-  final Database _database;
-  
-  DatabaseBridge(this._crdtManager, this._database) {
-    _crdtManager.onStateChanged.listen(_syncToDatabase);
-  }
-  
-  Future<void> _syncToDatabase(V? state) async {
-    if (state != null) {
-      await _database.upsert('crdt_state', {
-        'data': state,
-        'cid': _crdtManager.latestKnownCid,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-    }
-  }
-  
-  Future<void> loadFromDatabase() async {
-    final row = await _database.query('crdt_state').first;
-    if (row != null) {
-      // Reconstruct CRDT state from database
-      // This requires careful handling of the CRDT semantics
-    }
-  }
-}
-```
+- Check the [test suite](test/) for examples
+- Read the [BlockStore Developer Guide](blockstore-developer-guide.md) for custom storage
+- File issues on GitHub for bugs
+- Join our Discord for questions
 
 ---
 
-## Conclusion
+## Next Steps
 
-This library provides a solid foundation for building decentralized applications with strong eventual consistency guarantees. By following the patterns and best practices outlined in this guide, you can build robust P2P applications that work reliably across diverse network conditions.
+1. **Start small** - Build a simple app first
+2. **Test thoroughly** - Especially concurrent scenarios  
+3. **Monitor performance** - Watch memory and network usage
+4. **Plan for scale** - Consider database backends early
+5. **Handle errors gracefully** - Network issues are common in P2P
 
-For more examples and advanced usage patterns, see the `/example` directory and the test suite.
-
-### Additional Resources
-
-- [Merkledag Package Documentation](https://pub.dev/packages/merkledag)
-- [LibP2P Dart Documentation](https://pub.dev/packages/dart_libp2p)
-- [CRDT Research Papers](https://crdt.tech/)
-- [ActivityPub Specification](https://www.w3.org/TR/activitypub/)
-
-### Contributing
-
-This library is actively maintained. Please see the CONTRIBUTING.md file for guidelines on contributing to the project.
+This library provides the foundation - now build something amazing! 🚀

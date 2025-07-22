@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dart_libp2p/dart_libp2p.dart' as libp2p;
 import 'package:dart_libp2p_merkle_crdt/src/bitswap/bitswap.dart';
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, DHTOptions, DHTMode;
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show DHTMode, DHTOptions, IpfsDHT, IpfsDHTv2;
 import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore;
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
@@ -32,7 +32,7 @@ class _OutboxNode {
   late libp2p.Host host;
   late libp2p.PeerId peerId;
   late PubSub pubsub;
-  late IpfsDHT dht;
+  late IpfsDHTv2 dht;
   late Actor actor;
   late Bitswap bitswap;
   late raw_block_store.InMemoryBlockStore blockStore; // General block store for raw IPLD blocks
@@ -77,7 +77,7 @@ class _OutboxNode {
     helper.pubsub = PubSub(helper.host, router);
 
     final providerStore = MemoryProviderStore();
-    helper.dht = IpfsDHT(
+    helper.dht = IpfsDHTv2(
       host: helper.host,
       providerStore: providerStore,
       options: const DHTOptions(mode: DHTMode.server),

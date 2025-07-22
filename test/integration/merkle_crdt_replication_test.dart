@@ -81,7 +81,7 @@ class _NodeWithMerkleCRDT {
   late Host host;
   late PeerId peerId;
   late UDX _udxInstance;
-  IpfsDHT? dht; // Store the DHT instance
+  IpfsDHTv2? dht; // Store the DHT instance
 
   _NodeWithMerkleCRDT(); // Private constructor
 
@@ -110,7 +110,7 @@ class _NodeWithMerkleCRDT {
 
     // Explicitly create DHT for this node helper
     final providerStore = MemoryProviderStore();
-    helper.dht = IpfsDHT(
+    helper.dht = IpfsDHTv2(
       host: helper.host,
       providerStore: providerStore, // Use the created provider store
       options: const DHTOptions(mode: DHTMode.server), // Or client, or auto. Server is good for tests.

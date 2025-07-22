@@ -301,6 +301,12 @@ class MockP2PStreamDagFetcher<P extends _i8.CRDTPayload<V>, V> extends _i1.Mock
       ) as _i6.PeerId);
 
   @override
+  bool get isDHTAvailable => (super.noSuchMethod(
+        Invocation.getter(#isDHTAvailable),
+        returnValue: false,
+      ) as bool);
+
+  @override
   _i7.Future<_i11.MerkleNode<P>?> get(_i5.CID? cid) => (super.noSuchMethod(
         Invocation.method(
           #get,
@@ -318,6 +324,15 @@ class MockP2PStreamDagFetcher<P extends _i8.CRDTPayload<V>, V> extends _i1.Mock
         returnValue: _i7.Future<void>.value(),
         returnValueForMissingStub: _i7.Future<void>.value(),
       ) as _i7.Future<void>);
+
+  @override
+  Map<String, dynamic> getStats() => (super.noSuchMethod(
+        Invocation.method(
+          #getStats,
+          [],
+        ),
+        returnValue: <String, dynamic>{},
+      ) as Map<String, dynamic>);
 
   @override
   _i7.Future<void> close() => (super.noSuchMethod(

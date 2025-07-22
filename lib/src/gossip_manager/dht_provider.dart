@@ -3,7 +3,7 @@ import 'dart:async';
 
 import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT;
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, IpfsDHTv2;
 import 'package:logging/logging.dart';
 
 final _logger = Logger('DHTProvider');
@@ -11,7 +11,7 @@ final _logger = Logger('DHTProvider');
 /// Handles DHT operations for content discovery and providing.
 /// Encapsulates all DHT-related functionality with proper error handling.
 class DHTProvider {
-  final IpfsDHT? _dht;
+  final IpfsDHTv2? _dht;
 
   DHTProvider(this._dht) {
     _logger.info('DHTProvider: Initialized with DHT ${_dht != null ? 'available' : 'unavailable'}');
@@ -21,7 +21,7 @@ class DHTProvider {
   bool get isAvailable => _dht != null;
 
   /// Public getter for the DHT instance (for backward compatibility)
-  IpfsDHT? get dht => _dht;
+  IpfsDHTv2? get dht => _dht;
 
   /// Finds providers for a given CID
   /// Returns a stream of provider addresses

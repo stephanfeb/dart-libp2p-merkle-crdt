@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:dart_cid/dart_cid.dart' show CID;
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT;
+import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHTv2;
 import 'package:merkledag/merkledag.dart' show DAGSyncer, MerkleNode, CRDTPayload;
 import 'package:logging/logging.dart';
 
@@ -33,14 +33,14 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
 
   /// Legacy getter for DHT (for backward compatibility)
   /// Returns the actual DHT instance or null
-  IpfsDHT? get dht => _dhtProvider.dht;
+  IpfsDHTv2? get dht => _dhtProvider.dht;
 
   P2PStreamDagFetcher(
     Host host,
     this._blockStore,
     String protocolId,
     P Function(Uint8List payloadBytes) payloadFactory,
-    {IpfsDHT? dht}
+    {IpfsDHTv2? dht}
   ) : _nodeProtocol = P2PNodeProtocol<P, V>(
         host,
         protocolId,
@@ -73,8 +73,12 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
       node = await _nodeProtocol.fetchNodeFromProvider(cid, providerInfo);
       if (node != null) {
         _logger.info('get: Successfully fetched $cid from network');
-        await _blockStore.put(node);
-        _logger.fine('get: Stored fetched node $cid in local block store');
+        try {
+          await _blockStore.put(node);
+          _logger.fine('get: Stored fetched node $cid in local block store');
+        }catch(e){
+          _logger.warning('get: Failed to store fetched node $cid in local block store: $e');
+        }
         return node;
       }
     }

@@ -2,7 +2,7 @@
 import 'dart:async';
 
 import 'package:dart_cid/dart_cid.dart' show CID; // Import CID
-import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, MerkleNode; // MerkleNode is exported here
+import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload;
 import 'package:logging/logging.dart';
 
 // Correct import for BlockStore
@@ -136,7 +136,7 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 
   /// Applies a local update to the CRDT.
   /// The payload `P` should be the CRDT-specific payload type (e.g., GSet, Counter).
-  Future<void> applyLocalUpdate(P payload) async {
+  Future<CID> applyLocalUpdate(P payload) async {
     _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Applying local update with payload: ${payload.toString()} (Value: ${payload.value})');
     try {
       final CID newHeadCid = await _merkleCrdt.add(payload);
@@ -147,6 +147,8 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       await _notifyCidChange();
       
       _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Successfully applied local update.');
+
+      return newHeadCid;
     } catch (e, s) {
       _logger.severe('[MerkleCrdtGossipManager] Node $_shortPeerId: applyLocalUpdate: Error applying local update with payload ${payload.toString()}: $e', e, s);
       rethrow; 

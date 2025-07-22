@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:dart_cid/dart_cid.dart';
 import 'package:dart_libp2p/core/host/host.dart';
 import 'package:dart_libp2p/core/peer/peer_id.dart';
@@ -13,7 +12,6 @@ import 'package:dart_libp2p/core/network/context.dart';
 import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/block_store.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/p2p_stream_dag_fetcher.dart';
-import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload;
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -24,7 +22,7 @@ import 'package:mockito/src/dummies.dart'; // For provideDummy
 @GenerateMocks([
   Host,
   BlockStore,
-  IpfsDHT,
+  IpfsDHTv2,
   PeerId,
   AddrInfo,
   P2PStream, // Assuming P2PStream is the interface for MuxedStream used by the fetcher
@@ -83,7 +81,7 @@ void main() {
   group('P2PStreamDagFetcher', () {
     late MockHost mockHost;
     late MockBlockStore<TestPayload, String> mockBlockStore;
-    late MockIpfsDHT mockDht;
+    late MockIpfsDHTv2 mockDht;
     late MockPeerId mockLocalPeerId;
     late MockPeerId mockRemotePeerId;
     late P2PStreamDagFetcher<TestPayload, String> fetcher;
@@ -101,7 +99,7 @@ void main() {
     setUp(() {
       mockHost = MockHost();
       mockBlockStore = MockBlockStore<TestPayload, String>();
-      mockDht = MockIpfsDHT();
+      mockDht = MockIpfsDHTv2();
       mockLocalPeerId = MockPeerId();
       mockRemotePeerId = MockPeerId();
       mockMerkleNode = MockMerkleNode<TestPayload>();
