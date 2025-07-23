@@ -215,7 +215,7 @@ class InMemoryBlockStore<P extends CRDTPayload<V>, V> implements BlockStore<P, V
       _emitChangeEvent(event);
     } else {
       // Create new entry
-      final newEntry = BlockStoreEntry<P, V>.active(node: node);
+      final newEntry = BlockStoreEntry<P, V>.active(node: node, collection: 'shopping-lists'); //FIXME !
       _store[cidString] = newEntry;
       
       // Emit insert event

@@ -15,8 +15,8 @@ class GossipSubAnnouncer implements Broadcaster {
   final PubSub _pubsub;
   final String _crdtInstanceTopic;
 
-  GossipSubAnnouncer(this._host, this._pubsub, String crdtInstanceId)
-      : _crdtInstanceTopic = 'merkledag-crdt/heads/1.0.0/$crdtInstanceId' {
+  GossipSubAnnouncer(this._host, this._pubsub, String crdtInstanceId, {String? topic})
+      : _crdtInstanceTopic = topic ?? 'merkledag-crdt/heads/1.0.0/$crdtInstanceId' {
     _logger.fine('GossipSubAnnouncer: Constructor started. CRDT Instance ID: $crdtInstanceId, Topic: $_crdtInstanceTopic');
     _logger.info('GossipSubAnnouncer: Initialized for topic $_crdtInstanceTopic');
   }
