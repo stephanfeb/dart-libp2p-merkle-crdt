@@ -1,21 +1,14 @@
 // lib/src/gossip_manager/merkle_crdt_gossip_manager.dart
 import 'dart:async';
-import 'dart:convert'; // For JSON encoding/decoding
-import 'dart:math' as math; // For random backoff
 
 import 'package:dart_cid/dart_cid.dart' show CID; // Import CID
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo; // For provider info
-import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, MerkleNode, Broadcaster;
+import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, Broadcaster;
 import 'package:logging/logging.dart';
 
 // Correct import for BlockStore
-import 'block_store.dart'; 
 import 'p2p_stream_dag_fetcher.dart';
 import 'gossipsub_announcer.dart';
-
-// Existing logger
-// final _logger = Logger('MerkleCrdtGossipManager'); 
-// No change needed for the logger instance itself, just its usage.
 
 class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   // Logger for this class - will be instance-specific
@@ -32,11 +25,6 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   
   // Event-driven cache - only updated through event system, never manually
   V? _cachedState;
-
-  // PHASE 2: Removed complex state management systems
-  // Removed: _pendingSyncCids, _lastSyncAttempts, _syncRetryCount, _peerSyncRatings
-  // Removed: _syncRetryTimer, _proactiveSyncTimer, _consecutiveFailedSyncs, etc.
-  // These were causing traffic overhead and complexity without significant benefit
 
   StreamSubscription<String>? _announcementSubscription;
 
@@ -200,176 +188,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     }
   }
 
-  /// Ranks providers by their sync rating (best first)
-  // Removed: List<AddrInfo> _rankProvidersByRating(List<AddrInfo> providers) {
-  // Removed:   return providers..sort((a, b) {
-  // Removed:     final ratingA = _peerSyncRatings[a.id.toBase58()]?.overallRating ?? 0.0;
-  // Removed:     final ratingB = _peerSyncRatings[b.id.toBase58()]?.overallRating ?? 0.0;
-  // Removed:     
-  // Removed:     // If both have no rating, randomize to avoid always picking the same peer
-  // Removed:     if (ratingA == 0.0 && ratingB == 0.0) {
-  // Removed:       return DateTime.now().millisecond % 2 == 0 ? -1 : 1;
-  // Removed:     }
-  // Removed:     
-  // Removed:     return ratingB.compareTo(ratingA); // Higher rating first
-  // Removed:   });
-  // Removed: }
-
   /// Enhanced version of _fetchDAGPath with better error handling and tracking
   Future<bool> _fetchDAGPathWithRating(AddrInfo provider, String targetCid) async {
     // PHASE 2: Removed enhanced DAG path fetching with peer rating
     _logger.info('Node $_shortPeerId: Enhanced DAG path fetching with rating removed in Phase 2 for $targetCid');
     return false;
   }
-
-  /// Attempts sync via GossipSub sync request
-  Future<void> _syncViaGossipSubRequest(String targetCid) async {
-    // PHASE 2: Removed complex GossipSub sync request protocol
-    // This was part of the complex recovery system that generated excessive traffic
-    _logger.info('Node $_shortPeerId: Complex GossipSub sync requests removed in Phase 2 for $targetCid');
-    return;
-  }
-
-  /// Attempts to fetch the complete DAG path from a provider  
-  Future<bool> _fetchDAGPath(AddrInfo provider, String targetCid) async {
-    // PHASE 2: Removed complex DAG path fetching - now handled by simplified DAGSyncer
-    _logger.info('Node $_shortPeerId: Complex DAG path fetching removed in Phase 2 for $targetCid');
-    return false;
-  }
-
-  /// Recursively fetches missing parent nodes to build complete DAG path
-  Future<void> _fetchMissingParents(MerkleNode<P> node) async {
-    // PHASE 2: Removed recursive parent fetching - now handled by simplified DAGSyncer
-    _logger.fine('Node $_shortPeerId: Recursive parent fetching removed in Phase 2 for ${node.cid}');
-    return;
-  }
-
-  /// Retries pending sync operations
-  // Removed: Future<void> _retryPendingSyncs() async {
-  // Removed:   if (_lastSyncAttempts.isEmpty) return;
-  // Removed:   
-  // Removed:   final now = DateTime.now();
-  // Removed:   final toRetry = <String>[];
-  // Removed:   
-  // Removed:   for (final entry in _lastSyncAttempts.entries) {
-  // Removed:     final cid = entry.key;
-  // Removed:     final lastAttempt = entry.value;
-  // Removed:     final retryCount = _syncRetryCount[cid] ?? 0;
-  // Removed:     
-  // Removed:     if (retryCount < _maxSyncRetries && now.difference(lastAttempt) > _syncRetryDelay) {
-  // Removed:       toRetry.add(cid);
-  // Removed:     }
-  // Removed:   }
-  // Removed:   
-  // Removed:   for (final cid in toRetry) {
-  // Removed:     _logger.info('Node $_shortPeerId: Retrying sync for $cid (attempt ${(_syncRetryCount[cid] ?? 0) + 1})');
-  // Removed:     await _initiateSyncRecovery(cid);
-  // Removed:   }
-  // Removed: }
-
-  /// PHASE 1 EMERGENCY FIX: Proactive monitoring disabled to reduce traffic
-  // Removed: Future<void> _performProactiveSyncHealthCheck() async {
-  // Removed:   _logger.fine('Node $_shortPeerId: Proactive sync monitoring disabled during performance refactoring');
-  // Removed:   // Early return - disable proactive monitoring that generates network traffic
-  // Removed:   // Simple health monitoring will be redesigned in Phase 3 if needed
-  // Removed:   return;
-  // Removed: }
-
-  /// Initiates proactive peer discovery when we suspect we're isolated or out of sync
-  // Removed: Future<void> _initiateProactivePeerDiscovery() async {
-  // Removed:   _logger.info('Node $_shortPeerId: Initiating proactive peer discovery...');
-  // Removed:   
-  // Removed:   try {
-  // Removed:     // Strategy 1: Query DHT for our own current heads to find peers who also have them
-  // Removed:     final currentHeads = _merkleCrdt.roots;
-  // Removed:     if (currentHeads.isNotEmpty) {
-  // Removed:       for (final headCid in currentHeads.take(2)) { // Limit to 2 heads to avoid spam
-  // Removed:         await _discoverPeersViaHeadQuery(headCid);
-  // Removed:       }
-  // Removed:     }
-  // Removed:     
-  // Removed:     // Strategy 2: Broadcast a "sync health check" message
-  // Removed:     await _broadcastSyncHealthCheck();
-  // Removed:     
-  // Removed:     // Reset consecutive failure counter after proactive discovery
-  // Removed:     _consecutiveFailedSyncs = 0;
-  // Removed:     
-  // Removed:   } catch (e, s) {
-  // Removed:     _logger.severe('Node $_shortPeerId: Error in proactive peer discovery: $e', e, s);
-  // Removed:   }
-  // Removed: }
-
-  /// Discovers peers by querying DHT for our current heads
-  // Removed: Future<void> _discoverPeersViaHeadQuery(CID headCid) async {
-  // Removed:   _logger.info('Node $_shortPeerId: Discovering peers via head query for $headCid');
-  // Removed:   
-  // Removed:   try {
-  // Removed:     if (!_dagFetcher.isDHTAvailable) return;
-  // Removed:     
-  // Removed:     final providers = _dagFetcher.dhtProvider.findProviders(headCid, maxProviders: 10);
-  // Removed:     await for (final provider in providers.take(5)) {
-  // Removed:       final peerId = provider.id.toBase58();
-  // Removed:       if (peerId != _dagFetcher.peerId.toBase58()) {
-  // Removed:         // Update peer rating (discovery bonus)
-  // Removed:         _updatePeerRating(peerId, isSuccess: true, responseTime: Duration(seconds: 1));
-  // Removed:         _logger.fine('Node $_shortPeerId: Discovered peer ${peerId.substring(0, 6)} via head query');
-  // Removed:       }
-  // Removed:     }
-  // Removed:   } catch (e, s) {
-  // Removed:     _logger.warning('Node $_shortPeerId: Error in head query peer discovery: $e', e, s);
-  // Removed:   }
-  // Removed: }
-
-  /// PHASE 1 EMERGENCY FIX: Health check broadcasts disabled to reduce traffic
-  // Removed: Future<void> _broadcastSyncHealthCheck() async {
-  // Removed:   _logger.fine('Node $_shortPeerId: Health check broadcasts disabled during performance refactoring');
-  // Removed:   // Early return - disable periodic health broadcasts that generate unnecessary traffic
-  // Removed:   // Health monitoring will be redesigned in Phase 3 with proper metrics
-  // Removed:   return;
-  // Removed: }
-
-  /// Updates peer rating based on sync performance
-  // Removed: void _updatePeerRating(String peerId, {required bool isSuccess, Duration? responseTime}) {
-  // Removed:   final rating = _peerSyncRatings.putIfAbsent(peerId, () => _PeerSyncRating(peerId));
-  // Removed:   
-  // Removed:   if (isSuccess) {
-  // Removed:     rating.recordSuccess(responseTime ?? Duration(seconds: 5));
-  // Removed:     _lastSuccessfulSyncTimes[peerId] = DateTime.now();
-  // Removed:     _consecutiveFailedSyncs = 0; // Reset failure counter on success
-  // Removed:   } else {
-  // Removed:     rating.recordFailure();
-  // Removed:     _consecutiveFailedSyncs++;
-  // Removed:   }
-  // Removed:   
-  // Removed:   _logger.fine('Node $_shortPeerId: Updated peer rating for ${peerId.substring(0, 6)}: ${rating.overallRating.toStringAsFixed(2)}');
-  // Removed: }
-
-  /// Gets top-rated peers for sync operations
-  // Removed: List<_PeerSyncRating> _getTopRatedPeers(int count) {
-  // Removed:   final sortedPeers = _peerSyncRatings.values.toList()
-  // Removed:     ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
-  // Removed:   return sortedPeers.take(count).toList();
-  // Removed: }
-
-  /// Cleans up old peer ratings to prevent memory growth
-  // Removed: void _cleanupOldPeerRatings() {
-  // Removed:   final now = DateTime.now();
-  // Removed:   final cutoff = now.subtract(Duration(hours: 24)); // Keep ratings for 24 hours
-  // Removed:   
-  // Removed:   _peerSyncRatings.removeWhere((peerId, rating) => 
-  // Removed:     rating.lastSyncAttempt.isBefore(cutoff));
-  // Removed:   
-  // Removed:   _lastSuccessfulSyncTimes.removeWhere((peerId, time) => 
-  // Removed:     time.isBefore(cutoff));
-  // Removed: }
-
-  /// Cleans up sync state after successful sync
-  // Removed: void _cleanupSyncState(String cid) {
-  // Removed:   _pendingSyncCids.remove(cid);
-  // Removed:   _lastSyncAttempts.remove(cid);
-  // Removed:   _syncRetryCount.remove(cid);
-  // Removed:   _logger.fine('Node $_shortPeerId: Cleaned up sync state for $cid');
-  // Removed: }
 
   /// Handles the callback from MerkleCRDT when a remote update is processed.
   void _onMerkleCRDTRemoteUpdate() async { // Made async
@@ -589,52 +413,6 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     }
   }
 }
-
-/// Tracks sync performance metrics for individual peers
-// Removed: class _PeerSyncRating {
-// Removed:   final String peerId;
-// Removed:   int successfulSyncs = 0;
-// Removed:   int failedSyncs = 0;
-// Removed:   int totalRequests = 0;
-// Removed:   double averageResponseTime = 0.0;
-// Removed:   DateTime lastSyncAttempt = DateTime.now();
-// Removed:   DateTime? lastSuccessfulSync;
-// Removed:   
-// Removed:   _PeerSyncRating(this.peerId);
-// Removed:   
-// Removed:   double get successRate => totalRequests == 0 ? 0.0 : successfulSyncs / totalRequests;
-// Removed:   
-// Removed:   double get overallRating {
-// Removed:     if (totalRequests == 0) return 0.0;
-// Removed:     
-// Removed:     final rateScore = successRate * 0.7; // 70% weight on success rate
-// Removed:     final speedScore = averageResponseTime > 0 ? (1.0 / (1.0 + averageResponseTime)) * 0.2 : 0.0; // 20% weight on speed
-// Removed:     final recentnessScore = lastSuccessfulSync != null ? 
-// Removed:       (1.0 / (1.0 + DateTime.now().difference(lastSuccessfulSync!).inHours)) * 0.1 : 0.0; // 10% weight on recency
-// Removed:     
-// Removed:     return rateScore + speedScore + recentnessScore;
-// Removed:   }
-// Removed:   
-// Removed:   void recordSuccess(Duration responseTime) {
-// Removed:     successfulSyncs++;
-// Removed:     totalRequests++;
-// Removed:     lastSuccessfulSync = DateTime.now();
-// Removed:     lastSyncAttempt = DateTime.now();
-// Removed:     
-// Removed:     // Update rolling average response time
-// Removed:     if (totalRequests == 1) {
-// Removed:       averageResponseTime = responseTime.inMilliseconds.toDouble();
-// Removed:     } else {
-// Removed:       averageResponseTime = (averageResponseTime * 0.8) + (responseTime.inMilliseconds * 0.2);
-// Removed:     }
-// Removed:   }
-// Removed:   
-// Removed:   void recordFailure() {
-// Removed:     failedSyncs++;
-// Removed:     totalRequests++;
-// Removed:     lastSyncAttempt = DateTime.now();
-// Removed:   }
-// Removed: }
 
 /// A sync-aware broadcaster that implements comprehensive sync request/response protocol
 /// via GossipSub while intercepting announcements for sync detection
