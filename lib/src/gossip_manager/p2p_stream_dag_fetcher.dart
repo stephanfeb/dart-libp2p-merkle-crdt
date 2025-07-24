@@ -86,23 +86,25 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
     return null;
   }
 
-  /// Enhanced fetch method that handles DAG path reconstruction for out-of-sync scenarios
+  /// PHASE 1 EMERGENCY FIX: Simplified fetch without complex DAG reconstruction
+  /// Complex reconstruction was handling timing issues caused by 10s delay, not real sync problems
   Future<MerkleNode<P>?> _fetchWithDagReconstruction(CID targetCid) async {
-    _logger.info('_fetchWithDagReconstruction: Starting DAG reconstruction for $targetCid');
+    _logger.info('_fetchWithDagReconstruction: Simplified fetch for $targetCid (complex reconstruction disabled)');
     
-    // Find providers via DHT
-    final providers = _dhtProvider.findProviders(targetCid);
+    // Simplified: just try basic provider fetch without complex reconstruction
+    final providers = _dhtProvider.findProviders(targetCid, maxProviders: 3);
     
-    // Try to fetch from each provider with full DAG reconstruction
     await for (final providerInfo in providers) {
       try {
-        final node = await _fetchNodeWithDependencies(targetCid, providerInfo);
+        final node = await _nodeProtocol.fetchNodeFromProvider(targetCid, providerInfo);
         if (node != null) {
-          _logger.info('_fetchWithDagReconstruction: Successfully reconstructed DAG for $targetCid');
+          await _blockStore.put(node);
+          await _dhtProvider.provide(node.cid);
+          _logger.info('_fetchWithDagReconstruction: Successfully fetched $targetCid with simplified logic');
           return node;
         }
       } catch (e) {
-        _logger.warning('_fetchWithDagReconstruction: Failed to fetch from provider ${providerInfo.id.toBase58().substring(0, 6)}: $e');
+        _logger.warning('_fetchWithDagReconstruction: Simple fetch failed from provider: $e');
       }
     }
     

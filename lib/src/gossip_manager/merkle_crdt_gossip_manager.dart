@@ -118,7 +118,7 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.info('Node $_shortPeerId: Enhanced sync detection setup complete with proactive monitoring');
   }
 
-  /// Handles incoming CID announcements with comprehensive sync detection
+  /// Handles incoming CID announcements with simple retry for consistency
   Future<void> _handleIncomingCidAnnouncement(String announcedCid) async {
     _logger.info('Node $_shortPeerId: Received CID announcement: $announcedCid');
     
@@ -142,66 +142,25 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
         await _notifyStateChange();
         await _notifyCidChange();
       } else {
-        // Failed to fetch - we might be out of sync
-        _logger.warning('Node $_shortPeerId: Failed to fetch CID $announcedCid - initiating sync recovery');
-        await _initiateSyncRecovery(announcedCid);
+        // CRITICAL FIX: Simple retry for failed fetches to restore consistency
+        _logger.warning('Node $_shortPeerId: Failed to fetch CID $announcedCid - trying simple retry');
+        await _simpleRetryFetch(announcedCid);
       }
     } catch (e, s) {
       _logger.severe('Node $_shortPeerId: Error handling CID announcement $announcedCid: $e', e, s);
-      // On error, also try sync recovery
-      await _initiateSyncRecovery(announcedCid);
+      // On error, also try simple retry
+      await _simpleRetryFetch(announcedCid);
     }
   }
 
-  /// Initiates comprehensive sync recovery when we detect we're out of sync
+  /// PHASE 1 EMERGENCY FIX: Complex sync recovery disabled to reduce traffic
+  /// This method was causing traffic amplification - will be redesigned in Phase 2
   Future<void> _initiateSyncRecovery(String detachedHeadCid) async {
-    _logger.info('Node $_shortPeerId: Initiating sync recovery for detached head $detachedHeadCid');
-
-    // Avoid duplicate sync attempts
-    if (_pendingSyncCids.contains(detachedHeadCid)) {
-      _logger.fine('Node $_shortPeerId: Sync already pending for $detachedHeadCid');
-      return;
-    }
-
-    // Check retry limits
-    final retryCount = _syncRetryCount[detachedHeadCid] ?? 0;
-    if (retryCount >= _maxSyncRetries) {
-      _logger.warning('Node $_shortPeerId: Max retries ($retryCount) reached for $detachedHeadCid');
-      return;
-    }
-
-    // Check rate limiting
-    final lastAttempt = _lastSyncAttempts[detachedHeadCid];
-    if (lastAttempt != null && DateTime.now().difference(lastAttempt) < _syncRetryDelay) {
-      _logger.fine('Node $_shortPeerId: Rate limiting sync attempt for $detachedHeadCid');
-      return;
-    }
-
-    _pendingSyncCids.add(detachedHeadCid);
-    _lastSyncAttempts[detachedHeadCid] = DateTime.now();
-    _syncRetryCount[detachedHeadCid] = retryCount + 1;
-
-    try {
-      // Strategy 1: Try to find peers who have this CID via DHT
-      if (_dagFetcher.isDHTAvailable) {
-        _logger.info('Node $_shortPeerId: Attempting DHT-based sync for $detachedHeadCid');
-        final success = await _syncViaDHT(detachedHeadCid);
-        if (success) {
-          _logger.info('Node $_shortPeerId: Successfully synced via DHT for $detachedHeadCid');
-          _cleanupSyncState(detachedHeadCid);
-          return;
-        }
-      }
-
-      // Strategy 2: Broadcast a sync request via GossipSub
-      _logger.info('Node $_shortPeerId: Attempting GossipSub-based sync for $detachedHeadCid');
-      await _syncViaGossipSubRequest(detachedHeadCid);
-
-    } catch (e, s) {
-      _logger.severe('Node $_shortPeerId: Sync recovery failed for $detachedHeadCid: $e', e, s);
-    } finally {
-      _pendingSyncCids.remove(detachedHeadCid);
-    }
+    _logger.info('Node $_shortPeerId: Complex sync recovery disabled during performance refactoring for $detachedHeadCid');
+    // Early return - disable complex recovery protocols that generate excessive traffic
+    // The underlying issue was the 10-second delay causing false sync failures
+    // Simple retry logic will be implemented in Phase 2 if needed
+    return;
   }
 
   /// Attempts sync via DHT provider discovery with intelligent peer selection
@@ -391,34 +350,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     }
   }
 
-  /// Performs proactive sync health monitoring to detect out-of-sync conditions early
+  /// PHASE 1 EMERGENCY FIX: Proactive monitoring disabled to reduce traffic
   Future<void> _performProactiveSyncHealthCheck() async {
-    _logger.fine('Node $_shortPeerId: Performing proactive sync health check...');
-    
-    try {
-      // Check if we haven't received any successful syncs recently
-      final now = DateTime.now();
-      final recentSyncs = _lastSuccessfulSyncTimes.entries.where(
-        (entry) => now.difference(entry.value) < _syncHealthCheckInterval
-      ).length;
-      
-      if (recentSyncs == 0 && _consecutiveFailedSyncs >= _maxConsecutiveFailures) {
-        _logger.warning('Node $_shortPeerId: Detected potential sync isolation - initiating proactive peer discovery');
-        await _initiateProactivePeerDiscovery();
-      }
-      
-      // Clean up old peer ratings
-      _cleanupOldPeerRatings();
-      
-      // Log sync health statistics
-      if (_peerSyncRatings.isNotEmpty) {
-        final topPeers = _getTopRatedPeers(3);
-        _logger.info('Node $_shortPeerId: Sync health - Top peers: ${topPeers.map((p) => p.peerId.substring(0, 6)).join(', ')}');
-      }
-      
-    } catch (e, s) {
-      _logger.severe('Node $_shortPeerId: Error in proactive sync health check: $e', e, s);
-    }
+    _logger.fine('Node $_shortPeerId: Proactive sync monitoring disabled during performance refactoring');
+    // Early return - disable proactive monitoring that generates network traffic
+    // Simple health monitoring will be redesigned in Phase 3 if needed
+    return;
   }
 
   /// Initiates proactive peer discovery when we suspect we're isolated or out of sync
@@ -466,27 +403,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     }
   }
 
-  /// Broadcasts a sync health check message to discover active peers
+  /// PHASE 1 EMERGENCY FIX: Health check broadcasts disabled to reduce traffic
   Future<void> _broadcastSyncHealthCheck() async {
-    _logger.info('Node $_shortPeerId: Broadcasting sync health check...');
-    
-    try {
-      final currentHeads = _merkleCrdt.roots.map((cid) => cid.toString()).toList();
-      
-      final healthCheckMessage = {
-        'type': 'sync_health_check',
-        'requesterId': _dagFetcher.peerId.toBase58(),
-        'currentHeads': currentHeads,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'consecutiveFailures': _consecutiveFailedSyncs,
-      };
-      
-      final messageJson = jsonEncode(healthCheckMessage);
-      await _announcer.broadcast('SYNC_HEALTH:$messageJson');
-      
-    } catch (e, s) {
-      _logger.severe('Node $_shortPeerId: Error broadcasting sync health check: $e', e, s);
-    }
+    _logger.fine('Node $_shortPeerId: Health check broadcasts disabled during performance refactoring');
+    // Early return - disable periodic health broadcasts that generate unnecessary traffic
+    // Health monitoring will be redesigned in Phase 3 with proper metrics
+    return;
   }
 
   /// Updates peer rating based on sync performance
@@ -714,6 +636,41 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 
     _logger.info('[MerkleCrdtGossipManager] Node $_shortPeerId: _performReannouncement: Re-announcement process complete for CID $currentCid.');
   }
+
+  /// CRITICAL CONSISTENCY FIX: Simple retry mechanism for failed fetches
+  /// This replaces the complex recovery protocols with basic retry logic
+  Future<void> _simpleRetryFetch(String cidString) async {
+    _logger.info('Node $_shortPeerId: Starting simple retry for $cidString');
+    
+    try {
+      final cid = CID.fromString(cidString);
+      
+      // Wait a bit for DHT to stabilize, then retry
+      await Future.delayed(Duration(seconds: 2));
+      
+      final retryNode = await _dagFetcher.get(cid);
+      if (retryNode != null) {
+        _logger.info('Node $_shortPeerId: Simple retry successful for $cidString');
+        await _notifyStateChange();
+        await _notifyCidChange();
+      } else {
+        // One more try with longer delay
+        _logger.warning('Node $_shortPeerId: First retry failed for $cidString, trying once more');
+        await Future.delayed(Duration(seconds: 5));
+        
+        final finalRetry = await _dagFetcher.get(cid);
+        if (finalRetry != null) {
+          _logger.info('Node $_shortPeerId: Final retry successful for $cidString');
+          await _notifyStateChange();
+          await _notifyCidChange();
+        } else {
+          _logger.severe('Node $_shortPeerId: All retries failed for $cidString - permanent sync failure');
+        }
+      }
+    } catch (e, s) {
+      _logger.severe('Node $_shortPeerId: Error in simple retry for $cidString: $e', e, s);
+    }
+  }
 }
 
 /// Tracks sync performance metrics for individual peers
@@ -774,15 +731,12 @@ class _SyncAwareBroadcaster implements Broadcaster {
 
   @override
   Future<void> broadcast(String cidString) async {
-    _logger.fine('broadcast: Delaying announcement for CID $cidString to ensure DHT provide completes');
-    
-    // Small delay to ensure DHT provide operations complete before broadcasting
-    // This fixes the race condition where remote peers receive announcements 
-    // before the announcing peer has provided content to DHT
-    await Future.delayed(Duration(seconds: 10));
-    
-    _logger.info('broadcast: Broadcasting CID $cidString (after DHT provide delay)');
-    // Delegate to the original announcer
+    _logger.info('broadcast: Broadcasting CID $cidString with minimal DHT provide delay');
+    // CRITICAL CONSISTENCY FIX: Add minimal delay to allow DHT provide to complete
+    // This prevents the race condition where peers receive announcements before 
+    // the content is available in the DHT, causing permanent sync failures
+    // 100ms is sufficient for local DHT operations while keeping performance gains
+    await Future.delayed(Duration(milliseconds: 100));
     await _originalAnnouncer.broadcast(cidString);
   }
 

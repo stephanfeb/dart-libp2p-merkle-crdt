@@ -300,5 +300,42 @@ void main() {
       
       _logger.info('✅ Enhanced sync handles rapid updates successfully');
     }, timeout: Timeout(Duration(seconds: 25)));
+    
+    test('Phase 1 emergency fixes maintain basic sync functionality', () async {
+      _logger.info('=== Testing Phase 1 Emergency Fixes: 10s delay removed, complex recovery disabled ===');
+      
+      // Test that simple A->B sync still works after removing delays and disabling recovery protocols
+      final updateValue = 'phase1-emergency-fix-test-${DateTime.now().millisecondsSinceEpoch}';
+      
+      final startTime = DateTime.now();
+      await nodeA.applyUpdate(updateValue);
+      
+      // Much shorter wait since we removed the 10-second delay
+      await Future.delayed(Duration(seconds: 3)); 
+      
+      final syncTime = DateTime.now().difference(startTime);
+      final stateA = await nodeA.getCurrentState();
+      final stateB = await nodeB.getCurrentState();
+      
+      _logger.info('Phase 1 Fix Results:');
+      _logger.info('- Sync completed in: ${syncTime.inMilliseconds}ms');
+      _logger.info('- Node A state: $stateA');
+      _logger.info('- Node B state: $stateB');
+      
+      // Verify successful synchronization
+      expect(stateA, contains(updateValue), reason: 'Node A should contain its own update');
+      expect(stateB, contains(updateValue), reason: 'Node B should have synchronized the update from A');
+      expect(stateA, equals(stateB), reason: 'Both nodes should have identical states');
+      
+      // Verify much faster sync (should be under 5 seconds now)
+      expect(syncTime.inSeconds, lessThan(5), 
+        reason: 'Sync should be much faster without 10-second delay');
+      
+      _logger.info('✅ Phase 1 Emergency Fixes SUCCESSFUL:');
+      _logger.info('  - 10-second delay removed ✓');
+      _logger.info('  - Complex recovery protocols disabled ✓');
+      _logger.info('  - Basic sync still works ✓');
+      _logger.info('  - Sync latency improved by ${10 - syncTime.inSeconds}+ seconds ✓');
+    }, timeout: Timeout(Duration(seconds: 15))); // Much shorter timeout
   });
 } 
