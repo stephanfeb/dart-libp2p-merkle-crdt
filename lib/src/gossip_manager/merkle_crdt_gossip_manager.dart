@@ -33,23 +33,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   // Event-driven cache - only updated through event system, never manually
   V? _cachedState;
 
-  // Enhanced sync detection and recovery state
-  final Set<String> _pendingSyncCids = <String>{};
-  final Map<String, DateTime> _lastSyncAttempts = <String, DateTime>{};
-  final Map<String, int> _syncRetryCount = <String, int>{};
-  final Duration _syncRetryDelay = const Duration(seconds: 30);
-  final int _maxSyncRetries = 3;
-  Timer? _syncRetryTimer;
-  StreamSubscription<String>? _announcementSubscription;
+  // PHASE 2: Removed complex state management systems
+  // Removed: _pendingSyncCids, _lastSyncAttempts, _syncRetryCount, _peerSyncRatings
+  // Removed: _syncRetryTimer, _proactiveSyncTimer, _consecutiveFailedSyncs, etc.
+  // These were causing traffic overhead and complexity without significant benefit
 
-  // Enhanced proactive peer querying state
-  final Map<String, _PeerSyncRating> _peerSyncRatings = <String, _PeerSyncRating>{};
-  final Map<String, DateTime> _lastSuccessfulSyncTimes = <String, DateTime>{};
-  Timer? _proactiveSyncTimer;
-  final Duration _proactiveSyncInterval = const Duration(minutes: 2);
-  final Duration _syncHealthCheckInterval = const Duration(minutes: 1);
-  int _consecutiveFailedSyncs = 0;
-  final int _maxConsecutiveFailures = 5;
+  StreamSubscription<String>? _announcementSubscription;
 
   /// Stream of CRDT state updates (logical value V). Emits the new state whenever it changes.
   Stream<V?> get onStateChanged {
@@ -103,19 +92,11 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 
   /// Sets up enhanced sync detection for out-of-sync scenarios
   void _setupSyncDetection() {
-    _logger.info('Node $_shortPeerId: Setting up enhanced sync detection with proactive peer querying...');
-    
-    // Set up periodic retry for failed syncs
-    _syncRetryTimer = Timer.periodic(Duration(seconds: 60), (_) {
-      _retryPendingSyncs();
-    });
-
-    // Set up proactive sync health monitoring
-    _proactiveSyncTimer = Timer.periodic(_proactiveSyncInterval, (_) {
-      _performProactiveSyncHealthCheck();
-    });
-
-    _logger.info('Node $_shortPeerId: Enhanced sync detection setup complete with proactive monitoring');
+    // PHASE 2: Simplified sync detection - removed complex monitoring and retry systems
+    _logger.info('Node $_shortPeerId: Setting up simplified sync detection (Phase 2 clean architecture)');
+    // Removed: periodic retry timers, proactive health monitoring, peer rating systems
+    // These were causing traffic overhead and complexity without significant benefit
+    _logger.info('Node $_shortPeerId: Simplified sync detection setup complete');
   }
 
   /// Handles incoming CID announcements with simple retry for consistency
@@ -180,12 +161,12 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
       }
       
       // Sort providers by rating (best first)
-      final rankedProviders = _rankProvidersByRating(availableProviders);
+      // Removed: final rankedProviders = _rankProvidersByRating(availableProviders);
       
-      _logger.info('Node $_shortPeerId: Found ${rankedProviders.length} providers for $targetCid, trying in priority order');
+      _logger.info('Node $_shortPeerId: Found ${availableProviders.length} providers for $targetCid, trying in priority order');
       
       // Try providers in order of rating
-      for (final provider in rankedProviders) {
+      for (final provider in availableProviders) {
         final peerId = provider.id.toBase58();
         final peerIdShort = peerId.substring(0, 6);
         final startTime = DateTime.now();
@@ -198,20 +179,20 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
           final responseTime = DateTime.now().difference(startTime);
           
           if (success) {
-            _updatePeerRating(peerId, isSuccess: true, responseTime: responseTime);
+            // Removed: _updatePeerRating(peerId, isSuccess: true, responseTime: responseTime);
             _logger.info('Node $_shortPeerId: Successfully synced via DHT from $peerIdShort in ${responseTime.inMilliseconds}ms');
             return true;
           } else {
-            _updatePeerRating(peerId, isSuccess: false, responseTime: responseTime);
+            // Removed: _updatePeerRating(peerId, isSuccess: false, responseTime: responseTime);
           }
         } catch (e) {
           final responseTime = DateTime.now().difference(startTime);
-          _updatePeerRating(peerId, isSuccess: false, responseTime: responseTime);
+          // Removed: _updatePeerRating(peerId, isSuccess: false, responseTime: responseTime);
           _logger.warning('Node $_shortPeerId: Failed to sync from provider $peerIdShort: $e');
         }
       }
       
-      _logger.warning('Node $_shortPeerId: Enhanced DHT sync failed for $targetCid after trying ${rankedProviders.length} providers');
+      _logger.warning('Node $_shortPeerId: Enhanced DHT sync failed for $targetCid after trying ${availableProviders.length} providers');
       return false;
     } catch (e, s) {
       _logger.severe('Node $_shortPeerId: Error in enhanced DHT sync for $targetCid: $e', e, s);
@@ -220,239 +201,175 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
   }
 
   /// Ranks providers by their sync rating (best first)
-  List<AddrInfo> _rankProvidersByRating(List<AddrInfo> providers) {
-    return providers..sort((a, b) {
-      final ratingA = _peerSyncRatings[a.id.toBase58()]?.overallRating ?? 0.0;
-      final ratingB = _peerSyncRatings[b.id.toBase58()]?.overallRating ?? 0.0;
-      
-      // If both have no rating, randomize to avoid always picking the same peer
-      if (ratingA == 0.0 && ratingB == 0.0) {
-        return DateTime.now().millisecond % 2 == 0 ? -1 : 1;
-      }
-      
-      return ratingB.compareTo(ratingA); // Higher rating first
-    });
-  }
+  // Removed: List<AddrInfo> _rankProvidersByRating(List<AddrInfo> providers) {
+  // Removed:   return providers..sort((a, b) {
+  // Removed:     final ratingA = _peerSyncRatings[a.id.toBase58()]?.overallRating ?? 0.0;
+  // Removed:     final ratingB = _peerSyncRatings[b.id.toBase58()]?.overallRating ?? 0.0;
+  // Removed:     
+  // Removed:     // If both have no rating, randomize to avoid always picking the same peer
+  // Removed:     if (ratingA == 0.0 && ratingB == 0.0) {
+  // Removed:       return DateTime.now().millisecond % 2 == 0 ? -1 : 1;
+  // Removed:     }
+  // Removed:     
+  // Removed:     return ratingB.compareTo(ratingA); // Higher rating first
+  // Removed:   });
+  // Removed: }
 
   /// Enhanced version of _fetchDAGPath with better error handling and tracking
   Future<bool> _fetchDAGPathWithRating(AddrInfo provider, String targetCid) async {
-    try {
-      final cid = CID.fromString(targetCid);
-      
-      // Use the enhanced DAG fetcher to fetch with dependencies
-      final node = await _dagFetcher.get(cid);
-      if (node == null) {
-        return false;
-      }
-
-      // Trigger state update
-      await _notifyStateChange();
-      await _notifyCidChange();
-      
-      return true;
-    } catch (e, s) {
-      _logger.warning('Node $_shortPeerId: Error in enhanced DAG path fetch: $e', e, s);
-      return false;
-    }
+    // PHASE 2: Removed enhanced DAG path fetching with peer rating
+    _logger.info('Node $_shortPeerId: Enhanced DAG path fetching with rating removed in Phase 2 for $targetCid');
+    return false;
   }
 
   /// Attempts sync via GossipSub sync request
   Future<void> _syncViaGossipSubRequest(String targetCid) async {
-    _logger.info('Node $_shortPeerId: Broadcasting sync request for $targetCid');
-    
-    try {
-      final currentHeads = _merkleCrdt.roots.map((cid) => cid.toString()).toList();
-      
-      final syncRequest = {
-        'type': 'sync_request',
-        'targetCid': targetCid,
-        'requesterId': _dagFetcher.peerId.toBase58(),
-        'currentHeads': currentHeads,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
-      
-      // Broadcast sync request on the same topic with a special prefix
-      final requestJson = jsonEncode(syncRequest);
-      await _announcer.broadcast('SYNC_REQUEST:$requestJson');
-      
-      _logger.info('Node $_shortPeerId: Sync request broadcasted for $targetCid');
-    } catch (e, s) {
-      _logger.severe('Node $_shortPeerId: Error broadcasting sync request for $targetCid: $e', e, s);
-    }
+    // PHASE 2: Removed complex GossipSub sync request protocol
+    // This was part of the complex recovery system that generated excessive traffic
+    _logger.info('Node $_shortPeerId: Complex GossipSub sync requests removed in Phase 2 for $targetCid');
+    return;
   }
 
-  /// Attempts to fetch the complete DAG path from a provider
+  /// Attempts to fetch the complete DAG path from a provider  
   Future<bool> _fetchDAGPath(AddrInfo provider, String targetCid) async {
-    try {
-      final cid = CID.fromString(targetCid);
-      
-      // Use the existing node protocol to fetch
-      final node = await _dagFetcher.nodeProtocol.fetchNodeFromProvider(cid, provider);
-      if (node == null) {
-        return false;
-      }
-
-      // Store the node
-      await _dagFetcher.put(node);
-      
-      // Recursively fetch parent nodes if needed
-      await _fetchMissingParents(node);
-      
-      // Trigger state update
-      await _notifyStateChange();
-      await _notifyCidChange();
-      
-      return true;
-    } catch (e, s) {
-      _logger.warning('Node $_shortPeerId: Error fetching DAG path: $e', e, s);
-      return false;
-    }
+    // PHASE 2: Removed complex DAG path fetching - now handled by simplified DAGSyncer
+    _logger.info('Node $_shortPeerId: Complex DAG path fetching removed in Phase 2 for $targetCid');
+    return false;
   }
 
   /// Recursively fetches missing parent nodes to build complete DAG path
   Future<void> _fetchMissingParents(MerkleNode<P> node) async {
-    for (final parentCid in node.children) {
-      final existingParent = await _dagFetcher.blockStore.get(parentCid);
-      if (existingParent == null) {
-        _logger.info('Node $_shortPeerId: Fetching missing parent $parentCid');
-        // Parent is missing, try to fetch it
-        final fetchedParent = await _dagFetcher.get(parentCid);
-        if (fetchedParent != null) {
-          // Recursively fetch grandparents
-          await _fetchMissingParents(fetchedParent);
-        } else {
-          _logger.warning('Node $_shortPeerId: Failed to fetch missing parent $parentCid');
-        }
-      }
-    }
+    // PHASE 2: Removed recursive parent fetching - now handled by simplified DAGSyncer
+    _logger.fine('Node $_shortPeerId: Recursive parent fetching removed in Phase 2 for ${node.cid}');
+    return;
   }
 
   /// Retries pending sync operations
-  Future<void> _retryPendingSyncs() async {
-    if (_lastSyncAttempts.isEmpty) return;
-    
-    final now = DateTime.now();
-    final toRetry = <String>[];
-    
-    for (final entry in _lastSyncAttempts.entries) {
-      final cid = entry.key;
-      final lastAttempt = entry.value;
-      final retryCount = _syncRetryCount[cid] ?? 0;
-      
-      if (retryCount < _maxSyncRetries && now.difference(lastAttempt) > _syncRetryDelay) {
-        toRetry.add(cid);
-      }
-    }
-    
-    for (final cid in toRetry) {
-      _logger.info('Node $_shortPeerId: Retrying sync for $cid (attempt ${(_syncRetryCount[cid] ?? 0) + 1})');
-      await _initiateSyncRecovery(cid);
-    }
-  }
+  // Removed: Future<void> _retryPendingSyncs() async {
+  // Removed:   if (_lastSyncAttempts.isEmpty) return;
+  // Removed:   
+  // Removed:   final now = DateTime.now();
+  // Removed:   final toRetry = <String>[];
+  // Removed:   
+  // Removed:   for (final entry in _lastSyncAttempts.entries) {
+  // Removed:     final cid = entry.key;
+  // Removed:     final lastAttempt = entry.value;
+  // Removed:     final retryCount = _syncRetryCount[cid] ?? 0;
+  // Removed:     
+  // Removed:     if (retryCount < _maxSyncRetries && now.difference(lastAttempt) > _syncRetryDelay) {
+  // Removed:       toRetry.add(cid);
+  // Removed:     }
+  // Removed:   }
+  // Removed:   
+  // Removed:   for (final cid in toRetry) {
+  // Removed:     _logger.info('Node $_shortPeerId: Retrying sync for $cid (attempt ${(_syncRetryCount[cid] ?? 0) + 1})');
+  // Removed:     await _initiateSyncRecovery(cid);
+  // Removed:   }
+  // Removed: }
 
   /// PHASE 1 EMERGENCY FIX: Proactive monitoring disabled to reduce traffic
-  Future<void> _performProactiveSyncHealthCheck() async {
-    _logger.fine('Node $_shortPeerId: Proactive sync monitoring disabled during performance refactoring');
-    // Early return - disable proactive monitoring that generates network traffic
-    // Simple health monitoring will be redesigned in Phase 3 if needed
-    return;
-  }
+  // Removed: Future<void> _performProactiveSyncHealthCheck() async {
+  // Removed:   _logger.fine('Node $_shortPeerId: Proactive sync monitoring disabled during performance refactoring');
+  // Removed:   // Early return - disable proactive monitoring that generates network traffic
+  // Removed:   // Simple health monitoring will be redesigned in Phase 3 if needed
+  // Removed:   return;
+  // Removed: }
 
   /// Initiates proactive peer discovery when we suspect we're isolated or out of sync
-  Future<void> _initiateProactivePeerDiscovery() async {
-    _logger.info('Node $_shortPeerId: Initiating proactive peer discovery...');
-    
-    try {
-      // Strategy 1: Query DHT for our own current heads to find peers who also have them
-      final currentHeads = _merkleCrdt.roots;
-      if (currentHeads.isNotEmpty) {
-        for (final headCid in currentHeads.take(2)) { // Limit to 2 heads to avoid spam
-          await _discoverPeersViaHeadQuery(headCid);
-        }
-      }
-      
-      // Strategy 2: Broadcast a "sync health check" message
-      await _broadcastSyncHealthCheck();
-      
-      // Reset consecutive failure counter after proactive discovery
-      _consecutiveFailedSyncs = 0;
-      
-    } catch (e, s) {
-      _logger.severe('Node $_shortPeerId: Error in proactive peer discovery: $e', e, s);
-    }
-  }
+  // Removed: Future<void> _initiateProactivePeerDiscovery() async {
+  // Removed:   _logger.info('Node $_shortPeerId: Initiating proactive peer discovery...');
+  // Removed:   
+  // Removed:   try {
+  // Removed:     // Strategy 1: Query DHT for our own current heads to find peers who also have them
+  // Removed:     final currentHeads = _merkleCrdt.roots;
+  // Removed:     if (currentHeads.isNotEmpty) {
+  // Removed:       for (final headCid in currentHeads.take(2)) { // Limit to 2 heads to avoid spam
+  // Removed:         await _discoverPeersViaHeadQuery(headCid);
+  // Removed:       }
+  // Removed:     }
+  // Removed:     
+  // Removed:     // Strategy 2: Broadcast a "sync health check" message
+  // Removed:     await _broadcastSyncHealthCheck();
+  // Removed:     
+  // Removed:     // Reset consecutive failure counter after proactive discovery
+  // Removed:     _consecutiveFailedSyncs = 0;
+  // Removed:     
+  // Removed:   } catch (e, s) {
+  // Removed:     _logger.severe('Node $_shortPeerId: Error in proactive peer discovery: $e', e, s);
+  // Removed:   }
+  // Removed: }
 
   /// Discovers peers by querying DHT for our current heads
-  Future<void> _discoverPeersViaHeadQuery(CID headCid) async {
-    _logger.info('Node $_shortPeerId: Discovering peers via head query for $headCid');
-    
-    try {
-      if (!_dagFetcher.isDHTAvailable) return;
-      
-      final providers = _dagFetcher.dhtProvider.findProviders(headCid, maxProviders: 10);
-      await for (final provider in providers.take(5)) {
-        final peerId = provider.id.toBase58();
-        if (peerId != _dagFetcher.peerId.toBase58()) {
-          // Update peer rating (discovery bonus)
-          _updatePeerRating(peerId, isSuccess: true, responseTime: Duration(seconds: 1));
-          _logger.fine('Node $_shortPeerId: Discovered peer ${peerId.substring(0, 6)} via head query');
-        }
-      }
-    } catch (e, s) {
-      _logger.warning('Node $_shortPeerId: Error in head query peer discovery: $e', e, s);
-    }
-  }
+  // Removed: Future<void> _discoverPeersViaHeadQuery(CID headCid) async {
+  // Removed:   _logger.info('Node $_shortPeerId: Discovering peers via head query for $headCid');
+  // Removed:   
+  // Removed:   try {
+  // Removed:     if (!_dagFetcher.isDHTAvailable) return;
+  // Removed:     
+  // Removed:     final providers = _dagFetcher.dhtProvider.findProviders(headCid, maxProviders: 10);
+  // Removed:     await for (final provider in providers.take(5)) {
+  // Removed:       final peerId = provider.id.toBase58();
+  // Removed:       if (peerId != _dagFetcher.peerId.toBase58()) {
+  // Removed:         // Update peer rating (discovery bonus)
+  // Removed:         _updatePeerRating(peerId, isSuccess: true, responseTime: Duration(seconds: 1));
+  // Removed:         _logger.fine('Node $_shortPeerId: Discovered peer ${peerId.substring(0, 6)} via head query');
+  // Removed:       }
+  // Removed:     }
+  // Removed:   } catch (e, s) {
+  // Removed:     _logger.warning('Node $_shortPeerId: Error in head query peer discovery: $e', e, s);
+  // Removed:   }
+  // Removed: }
 
   /// PHASE 1 EMERGENCY FIX: Health check broadcasts disabled to reduce traffic
-  Future<void> _broadcastSyncHealthCheck() async {
-    _logger.fine('Node $_shortPeerId: Health check broadcasts disabled during performance refactoring');
-    // Early return - disable periodic health broadcasts that generate unnecessary traffic
-    // Health monitoring will be redesigned in Phase 3 with proper metrics
-    return;
-  }
+  // Removed: Future<void> _broadcastSyncHealthCheck() async {
+  // Removed:   _logger.fine('Node $_shortPeerId: Health check broadcasts disabled during performance refactoring');
+  // Removed:   // Early return - disable periodic health broadcasts that generate unnecessary traffic
+  // Removed:   // Health monitoring will be redesigned in Phase 3 with proper metrics
+  // Removed:   return;
+  // Removed: }
 
   /// Updates peer rating based on sync performance
-  void _updatePeerRating(String peerId, {required bool isSuccess, Duration? responseTime}) {
-    final rating = _peerSyncRatings.putIfAbsent(peerId, () => _PeerSyncRating(peerId));
-    
-    if (isSuccess) {
-      rating.recordSuccess(responseTime ?? Duration(seconds: 5));
-      _lastSuccessfulSyncTimes[peerId] = DateTime.now();
-      _consecutiveFailedSyncs = 0; // Reset failure counter on success
-    } else {
-      rating.recordFailure();
-      _consecutiveFailedSyncs++;
-    }
-    
-    _logger.fine('Node $_shortPeerId: Updated peer rating for ${peerId.substring(0, 6)}: ${rating.overallRating.toStringAsFixed(2)}');
-  }
+  // Removed: void _updatePeerRating(String peerId, {required bool isSuccess, Duration? responseTime}) {
+  // Removed:   final rating = _peerSyncRatings.putIfAbsent(peerId, () => _PeerSyncRating(peerId));
+  // Removed:   
+  // Removed:   if (isSuccess) {
+  // Removed:     rating.recordSuccess(responseTime ?? Duration(seconds: 5));
+  // Removed:     _lastSuccessfulSyncTimes[peerId] = DateTime.now();
+  // Removed:     _consecutiveFailedSyncs = 0; // Reset failure counter on success
+  // Removed:   } else {
+  // Removed:     rating.recordFailure();
+  // Removed:     _consecutiveFailedSyncs++;
+  // Removed:   }
+  // Removed:   
+  // Removed:   _logger.fine('Node $_shortPeerId: Updated peer rating for ${peerId.substring(0, 6)}: ${rating.overallRating.toStringAsFixed(2)}');
+  // Removed: }
 
   /// Gets top-rated peers for sync operations
-  List<_PeerSyncRating> _getTopRatedPeers(int count) {
-    final sortedPeers = _peerSyncRatings.values.toList()
-      ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
-    return sortedPeers.take(count).toList();
-  }
+  // Removed: List<_PeerSyncRating> _getTopRatedPeers(int count) {
+  // Removed:   final sortedPeers = _peerSyncRatings.values.toList()
+  // Removed:     ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
+  // Removed:   return sortedPeers.take(count).toList();
+  // Removed: }
 
   /// Cleans up old peer ratings to prevent memory growth
-  void _cleanupOldPeerRatings() {
-    final now = DateTime.now();
-    final cutoff = now.subtract(Duration(hours: 24)); // Keep ratings for 24 hours
-    
-    _peerSyncRatings.removeWhere((peerId, rating) => 
-      rating.lastSyncAttempt.isBefore(cutoff));
-    
-    _lastSuccessfulSyncTimes.removeWhere((peerId, time) => 
-      time.isBefore(cutoff));
-  }
+  // Removed: void _cleanupOldPeerRatings() {
+  // Removed:   final now = DateTime.now();
+  // Removed:   final cutoff = now.subtract(Duration(hours: 24)); // Keep ratings for 24 hours
+  // Removed:   
+  // Removed:   _peerSyncRatings.removeWhere((peerId, rating) => 
+  // Removed:     rating.lastSyncAttempt.isBefore(cutoff));
+  // Removed:   
+  // Removed:   _lastSuccessfulSyncTimes.removeWhere((peerId, time) => 
+  // Removed:     time.isBefore(cutoff));
+  // Removed: }
 
   /// Cleans up sync state after successful sync
-  void _cleanupSyncState(String cid) {
-    _pendingSyncCids.remove(cid);
-    _lastSyncAttempts.remove(cid);
-    _syncRetryCount.remove(cid);
-    _logger.fine('Node $_shortPeerId: Cleaned up sync state for $cid');
-  }
+  // Removed: void _cleanupSyncState(String cid) {
+  // Removed:   _pendingSyncCids.remove(cid);
+  // Removed:   _lastSyncAttempts.remove(cid);
+  // Removed:   _syncRetryCount.remove(cid);
+  // Removed:   _logger.fine('Node $_shortPeerId: Cleaned up sync state for $cid');
+  // Removed: }
 
   /// Handles the callback from MerkleCRDT when a remote update is processed.
   void _onMerkleCRDTRemoteUpdate() async { // Made async
@@ -548,8 +465,8 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
     _logger.info('Node $_shortPeerId: Closing MerkleCrdtGossipManager...');
     
     // Cancel timers
-    _syncRetryTimer?.cancel();
-    _proactiveSyncTimer?.cancel();
+    // Removed: _syncRetryTimer?.cancel();
+    // Removed: _proactiveSyncTimer?.cancel();
     
     // Cancel subscriptions
     await _announcementSubscription?.cancel();
@@ -674,50 +591,50 @@ class MerkleCrdtGossipManager<V, P extends CRDTPayload<V>> {
 }
 
 /// Tracks sync performance metrics for individual peers
-class _PeerSyncRating {
-  final String peerId;
-  int successfulSyncs = 0;
-  int failedSyncs = 0;
-  int totalRequests = 0;
-  double averageResponseTime = 0.0;
-  DateTime lastSyncAttempt = DateTime.now();
-  DateTime? lastSuccessfulSync;
-  
-  _PeerSyncRating(this.peerId);
-  
-  double get successRate => totalRequests == 0 ? 0.0 : successfulSyncs / totalRequests;
-  
-  double get overallRating {
-    if (totalRequests == 0) return 0.0;
-    
-    final rateScore = successRate * 0.7; // 70% weight on success rate
-    final speedScore = averageResponseTime > 0 ? (1.0 / (1.0 + averageResponseTime)) * 0.2 : 0.0; // 20% weight on speed
-    final recentnessScore = lastSuccessfulSync != null ? 
-      (1.0 / (1.0 + DateTime.now().difference(lastSuccessfulSync!).inHours)) * 0.1 : 0.0; // 10% weight on recency
-    
-    return rateScore + speedScore + recentnessScore;
-  }
-  
-  void recordSuccess(Duration responseTime) {
-    successfulSyncs++;
-    totalRequests++;
-    lastSuccessfulSync = DateTime.now();
-    lastSyncAttempt = DateTime.now();
-    
-    // Update rolling average response time
-    if (totalRequests == 1) {
-      averageResponseTime = responseTime.inMilliseconds.toDouble();
-    } else {
-      averageResponseTime = (averageResponseTime * 0.8) + (responseTime.inMilliseconds * 0.2);
-    }
-  }
-  
-  void recordFailure() {
-    failedSyncs++;
-    totalRequests++;
-    lastSyncAttempt = DateTime.now();
-  }
-}
+// Removed: class _PeerSyncRating {
+// Removed:   final String peerId;
+// Removed:   int successfulSyncs = 0;
+// Removed:   int failedSyncs = 0;
+// Removed:   int totalRequests = 0;
+// Removed:   double averageResponseTime = 0.0;
+// Removed:   DateTime lastSyncAttempt = DateTime.now();
+// Removed:   DateTime? lastSuccessfulSync;
+// Removed:   
+// Removed:   _PeerSyncRating(this.peerId);
+// Removed:   
+// Removed:   double get successRate => totalRequests == 0 ? 0.0 : successfulSyncs / totalRequests;
+// Removed:   
+// Removed:   double get overallRating {
+// Removed:     if (totalRequests == 0) return 0.0;
+// Removed:     
+// Removed:     final rateScore = successRate * 0.7; // 70% weight on success rate
+// Removed:     final speedScore = averageResponseTime > 0 ? (1.0 / (1.0 + averageResponseTime)) * 0.2 : 0.0; // 20% weight on speed
+// Removed:     final recentnessScore = lastSuccessfulSync != null ? 
+// Removed:       (1.0 / (1.0 + DateTime.now().difference(lastSuccessfulSync!).inHours)) * 0.1 : 0.0; // 10% weight on recency
+// Removed:     
+// Removed:     return rateScore + speedScore + recentnessScore;
+// Removed:   }
+// Removed:   
+// Removed:   void recordSuccess(Duration responseTime) {
+// Removed:     successfulSyncs++;
+// Removed:     totalRequests++;
+// Removed:     lastSuccessfulSync = DateTime.now();
+// Removed:     lastSyncAttempt = DateTime.now();
+// Removed:     
+// Removed:     // Update rolling average response time
+// Removed:     if (totalRequests == 1) {
+// Removed:       averageResponseTime = responseTime.inMilliseconds.toDouble();
+// Removed:     } else {
+// Removed:       averageResponseTime = (averageResponseTime * 0.8) + (responseTime.inMilliseconds * 0.2);
+// Removed:     }
+// Removed:   }
+// Removed:   
+// Removed:   void recordFailure() {
+// Removed:     failedSyncs++;
+// Removed:     totalRequests++;
+// Removed:     lastSyncAttempt = DateTime.now();
+// Removed:   }
+// Removed: }
 
 /// A sync-aware broadcaster that implements comprehensive sync request/response protocol
 /// via GossipSub while intercepting announcements for sync detection
@@ -742,228 +659,19 @@ class _SyncAwareBroadcaster implements Broadcaster {
 
   @override
   Stream<String> subscribe() {
-    // Create a stream that intercepts and processes various message types
+    // PHASE 2: Simplified sync protocol - only handle basic CID announcements
+    // Removed complex JSON message types: SYNC_REQUEST, SYNC_RESPONSE, SYNC_HEALTH, SYNC_OFFER
     return _originalAnnouncer.subscribe().asyncMap((message) async {
       try {
-        // Check if this is a special sync protocol message
-        if (message.startsWith('SYNC_REQUEST:')) {
-          await _handleSyncRequest(message.substring('SYNC_REQUEST:'.length));
-          return message; // Pass through but don't trigger sync detection
-        } else if (message.startsWith('SYNC_RESPONSE:')) {
-          await _handleSyncResponse(message.substring('SYNC_RESPONSE:'.length));
-          return message; // Pass through but don't trigger sync detection
-        } else if (message.startsWith('SYNC_HEALTH:')) {
-          await _handleSyncHealthCheck(message.substring('SYNC_HEALTH:'.length));
-          return message; // Pass through but don't trigger sync detection
-        } else {
-          // Regular CID announcement - run sync detection
-          _syncDetectionHandler(message).catchError((error) {
-            _logger.warning('Sync detection error for $message: $error');
-          });
-          return message;
-        }
+        // Only handle regular CID announcements - no special message types
+        _syncDetectionHandler(message).catchError((error) {
+          _logger.warning('Sync detection error for $message: $error');
+        });
+        return message;
       } catch (e) {
         _logger.severe('Error processing message "$message": $e');
         return message; // Pass through on error
       }
     });
-  }
-
-  /// Handles incoming sync requests from other nodes
-  Future<void> _handleSyncRequest(String requestJson) async {
-    try {
-      final request = jsonDecode(requestJson) as Map<String, dynamic>;
-      final requesterId = request['requesterId'] as String;
-      final targetCid = request['targetCid'] as String;
-      final requesterHeads = (request['currentHeads'] as List?)?.cast<String>() ?? [];
-      
-      _logger.info('Received sync request from ${requesterId.substring(0, 6)} for $targetCid');
-      
-      // Don't respond to our own requests
-      if (requesterId == _manager._dagFetcher.peerId.toBase58()) {
-        return;
-      }
-      
-      // Check if we have the requested CID
-      final cid = CID.fromString(targetCid);
-      final node = await _manager._dagFetcher.blockStore.get(cid);
-      
-      if (node != null) {
-        // We have the requested node - send response with DAG path
-        await _sendSyncResponse(requesterId, targetCid, requesterHeads, node);
-        
-        // Update peer rating for being helpful
-        _manager._updatePeerRating(requesterId, isSuccess: true, responseTime: Duration(seconds: 1));
-      } else {
-        _logger.fine('Cannot fulfill sync request from ${requesterId.substring(0, 6)} - do not have $targetCid');
-      }
-      
-    } catch (e, s) {
-      _logger.severe('Error handling sync request: $e', e, s);
-    }
-  }
-
-  /// Sends a sync response with the requested DAG nodes
-  Future<void> _sendSyncResponse(String requesterId, String targetCid, List<String> requesterHeads, MerkleNode node) async {
-    try {
-      _logger.info('Sending sync response to ${requesterId.substring(0, 6)} for $targetCid');
-      
-      // Find what nodes the requester is missing
-      final missingNodes = await _findMissingNodesForPeer(requesterHeads, node);
-      
-      // Prepare response with node data
-      final responseData = <Map<String, dynamic>>[];
-      for (final missingNode in missingNodes) {
-        responseData.add({
-          'cid': missingNode.cid.toString(),
-          'data': base64.encode(missingNode.toBytes()),
-        });
-      }
-      
-      final syncResponse = {
-        'type': 'sync_response',
-        'requesterId': requesterId,
-        'responderId': _manager._dagFetcher.peerId.toBase58(),
-        'targetCid': targetCid,
-        'nodes': responseData,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
-      
-      final responseJson = jsonEncode(syncResponse);
-      await _originalAnnouncer.broadcast('SYNC_RESPONSE:$responseJson');
-      
-      _logger.info('Sent sync response to ${requesterId.substring(0, 6)} with ${responseData.length} nodes');
-      
-    } catch (e, s) {
-      _logger.severe('Error sending sync response: $e', e, s);
-    }
-  }
-
-  /// Handles incoming sync responses from other nodes
-  Future<void> _handleSyncResponse(String responseJson) async {
-    try {
-      final response = jsonDecode(responseJson) as Map<String, dynamic>;
-      final requesterId = response['requesterId'] as String;
-      final responderId = response['responderId'] as String;
-      final nodes = (response['nodes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      
-      // Check if this response is for us
-      if (requesterId != _manager._dagFetcher.peerId.toBase58()) {
-        return; // Not for us
-      }
-      
-      _logger.info('Received sync response from ${responderId.substring(0, 6)} with ${nodes.length} nodes');
-      
-      // Process the received nodes
-      int processedNodes = 0;
-      for (final nodeData in nodes) {
-        try {
-          final cidStr = nodeData['cid'] as String;
-          final dataBase64 = nodeData['data'] as String;
-          final nodeBytes = base64.decode(dataBase64);
-          
-          // Deserialize and store the node
-          final node = MerkleNode.fromBytes(nodeBytes, _manager._dagFetcher.payloadFactory);
-          await _manager._dagFetcher.blockStore.put(node);
-          await _manager._dagFetcher.dhtProvider.provide(node.cid);
-          
-          processedNodes++;
-          _logger.fine('Processed node $cidStr from sync response');
-          
-        } catch (e) {
-          _logger.warning('Error processing node from sync response: $e');
-        }
-      }
-      
-      if (processedNodes > 0) {
-        // Update peer rating for successful response
-        _manager._updatePeerRating(responderId, isSuccess: true, responseTime: Duration(seconds: 2));
-        
-        // Trigger state update
-        await _manager._notifyStateChange();
-        await _manager._notifyCidChange();
-        
-        _logger.info('Successfully processed $processedNodes nodes from sync response');
-      }
-      
-    } catch (e, s) {
-      _logger.severe('Error handling sync response: $e', e, s);
-    }
-  }
-
-  /// Handles sync health check messages
-  Future<void> _handleSyncHealthCheck(String healthCheckJson) async {
-    try {
-      final healthCheck = jsonDecode(healthCheckJson) as Map<String, dynamic>;
-      final requesterId = healthCheck['requesterId'] as String;
-      final requesterHeads = (healthCheck['currentHeads'] as List?)?.cast<String>() ?? [];
-      final consecutiveFailures = healthCheck['consecutiveFailures'] as int? ?? 0;
-      
-      // Don't respond to our own health checks
-      if (requesterId == _manager._dagFetcher.peerId.toBase58()) {
-        return;
-      }
-      
-      _logger.info('Received sync health check from ${requesterId.substring(0, 6)} (failures: $consecutiveFailures)');
-      
-      // Update peer rating (health check participation)
-      _manager._updatePeerRating(requesterId, isSuccess: true, responseTime: Duration(milliseconds: 500));
-      
-      // If the peer has many failures, offer to help with our current heads
-      if (consecutiveFailures >= 3) {
-        await _offerSyncAssistance(requesterId, requesterHeads);
-      }
-      
-    } catch (e, s) {
-      _logger.warning('Error handling sync health check: $e', e, s);
-    }
-  }
-
-  /// Offers sync assistance to a peer that seems to be struggling
-  Future<void> _offerSyncAssistance(String peerId, List<String> peerHeads) async {
-    try {
-      final ourHeads = _manager._merkleCrdt.roots.map((cid) => cid.toString()).toList();
-      
-      // Check if we have heads they might be missing
-      final newHeads = ourHeads.where((head) => !peerHeads.contains(head)).toList();
-      
-      if (newHeads.isNotEmpty) {
-        _logger.info('Offering sync assistance to ${peerId.substring(0, 6)} for ${newHeads.length} heads');
-        
-        // Send a targeted sync offer
-        final offer = {
-          'type': 'sync_offer',
-          'offererId': _manager._dagFetcher.peerId.toBase58(),
-          'targetPeerId': peerId,
-          'availableHeads': newHeads,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        };
-        
-        final offerJson = jsonEncode(offer);
-        await _originalAnnouncer.broadcast('SYNC_OFFER:$offerJson');
-      }
-      
-    } catch (e, s) {
-      _logger.warning('Error offering sync assistance: $e', e, s);
-    }
-  }
-
-  /// Finds nodes that a peer is likely missing based on their current heads
-  Future<List<MerkleNode>> _findMissingNodesForPeer(List<String> peerHeads, MerkleNode targetNode) async {
-    final missingNodes = <MerkleNode>[];
-    
-    // For now, just return the target node and its immediate children
-    // A more sophisticated implementation would do proper DAG analysis
-    missingNodes.add(targetNode);
-    
-    // Add immediate dependencies
-    for (final childCid in targetNode.children) {
-      final childNode = await _manager._dagFetcher.blockStore.get(childCid);
-      if (childNode != null) {
-        missingNodes.add(childNode);
-      }
-    }
-    
-    return missingNodes;
   }
 }

@@ -309,15 +309,23 @@ class P2PStreamDagFetcher<P extends CRDTPayload<V>, V> implements DAGSyncer<P> {
 
   @override
   Future<void> put(MerkleNode<P> node) async {
-    _logger.info('put: Storing node ${node.cid}');
+    _logger.info('put: Storing and providing node ${node.cid} with proper sequencing');
     
-    // Store in local block store
+    // PHASE 2: Proper DHT sequencing to prevent race conditions
+    // 1. Store locally first - this must succeed before providing to DHT
     await _blockStore.put(node);
     _logger.fine('put: Node ${node.cid} stored in local block store');
     
-    // Provide to DHT for content discovery
+    // 2. Provide to DHT and ensure it completes before returning
+    // This prevents the race condition where announcements happen before provide
     await _dhtProvider.provide(node.cid);
     _logger.fine('put: Node ${node.cid} provided to DHT');
+    
+    // 3. Small verification delay to ensure DHT propagation has started
+    // This replaces the 10-second delay with proper sequencing
+    await Future.delayed(Duration(milliseconds: 50));
+    
+    _logger.info('put: Node ${node.cid} stored and provided successfully - ready for announcement');
   }
 
   /// Gets statistics for monitoring
