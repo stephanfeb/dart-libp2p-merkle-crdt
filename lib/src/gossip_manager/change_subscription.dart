@@ -1,6 +1,6 @@
 // lib/src/gossip_manager/change_subscription.dart
 import 'dart:async';
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 
 import 'block_change_event.dart';

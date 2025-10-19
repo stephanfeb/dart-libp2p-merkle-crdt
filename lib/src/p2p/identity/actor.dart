@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:convert' show base64, utf8; // For _toBase64Url, utf8
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:cbor/cbor.dart'; // Removed 'as cbor'
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:pinenacl/api/signatures.dart'; // For SignatureBase typedef
 import 'package:pinenacl/api.dart'; // For other API elements, potentially Signature class
 import 'package:pinenacl/ed25519.dart' as ed25519;

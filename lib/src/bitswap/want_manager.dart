@@ -2,7 +2,7 @@ import 'dart:async'; // For Completer
 import 'dart:typed_data'; // For Uint8List
 
 import './proto/bitswap_message.pb.dart' as pb;
-import 'package:dart_cid/dart_cid.dart'; 
+import 'package:dcid/dcid.dart'; 
 
 // Represents an entry in a wantlist
 class WantlistEntry {

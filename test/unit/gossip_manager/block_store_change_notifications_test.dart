@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:test/test.dart';
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:merkledag/merkledag.dart';
 
 import '../../../lib/src/gossip_manager/block_store.dart';

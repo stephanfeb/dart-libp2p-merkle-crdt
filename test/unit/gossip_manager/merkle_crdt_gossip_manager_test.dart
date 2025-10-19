@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:convert'; // For utf8 in TestPayload
 
 import 'package:crypto/crypto.dart' as crypto;
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/gossipsub_announcer.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/merkle_crdt_gossip_manager.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/p2p_stream_dag_fetcher.dart';

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/identity/actor.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/activity.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/note.dart' hide activityStreamsContext; // Hide to resolve ambiguity

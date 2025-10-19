@@ -6,7 +6,7 @@
 import 'dart:async' as _i30;
 import 'dart:typed_data' as _i38;
 
-import 'package:dart_cid/dart_cid.dart' as _i25;
+import 'package:dcid/dcid.dart' as _i25;
 import 'package:dart_libp2p/core/connmgr/conn_manager.dart' as _i6;
 import 'package:dart_libp2p/core/crypto/keys.dart' as _i43;
 import 'package:dart_libp2p/core/discovery.dart' as _i39;
@@ -23,24 +23,24 @@ import 'package:dart_libp2p/core/peer/peer_id.dart' as _i2;
 import 'package:dart_libp2p/core/peerstore.dart' as _i3;
 import 'package:dart_libp2p/core/protocol/switch.dart' as _i5;
 import 'package:dart_libp2p/core/routing/options.dart' as _i37;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' as _i36;
-import 'package:dart_libp2p_kat_dht/src/dht/dht_options.dart' as _i14;
-import 'package:dart_libp2p_kat_dht/src/dht/handlers.dart' as _i18;
-import 'package:dart_libp2p_kat_dht/src/dht/v2/config/dht_config.dart' as _i16;
-import 'package:dart_libp2p_kat_dht/src/dht/v2/managers/metrics_manager.dart'
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' as _i36;
+import 'package:dart_libp2p_kad_dht/src/dht/dht_options.dart' as _i14;
+import 'package:dart_libp2p_kad_dht/src/dht/handlers.dart' as _i18;
+import 'package:dart_libp2p_kad_dht/src/dht/v2/config/dht_config.dart' as _i16;
+import 'package:dart_libp2p_kad_dht/src/dht/v2/managers/metrics_manager.dart'
     as _i15;
-import 'package:dart_libp2p_kat_dht/src/dht/v2/managers/query_manager.dart'
+import 'package:dart_libp2p_kad_dht/src/dht/v2/managers/query_manager.dart'
     as _i23;
-import 'package:dart_libp2p_kat_dht/src/internal/protocol_messenger.dart'
+import 'package:dart_libp2p_kad_dht/src/internal/protocol_messenger.dart'
     as _i21;
-import 'package:dart_libp2p_kat_dht/src/kbucket/table/table.dart' as _i13;
-import 'package:dart_libp2p_kat_dht/src/netsize/netsize.dart' as _i20;
-import 'package:dart_libp2p_kat_dht/src/pb/dht_message.dart' as _i24;
-import 'package:dart_libp2p_kat_dht/src/pb/record.dart' as _i40;
-import 'package:dart_libp2p_kat_dht/src/providers/provider_manager.dart'
+import 'package:dart_libp2p_kad_dht/src/kbucket/table/table.dart' as _i13;
+import 'package:dart_libp2p_kad_dht/src/netsize/netsize.dart' as _i20;
+import 'package:dart_libp2p_kad_dht/src/pb/dht_message.dart' as _i24;
+import 'package:dart_libp2p_kad_dht/src/pb/record.dart' as _i40;
+import 'package:dart_libp2p_kad_dht/src/providers/provider_manager.dart'
     as _i17;
-import 'package:dart_libp2p_kat_dht/src/query/qpeerset.dart' as _i41;
-import 'package:dart_libp2p_kat_dht/src/record/namespace_validator.dart'
+import 'package:dart_libp2p_kad_dht/src/query/qpeerset.dart' as _i41;
+import 'package:dart_libp2p_kad_dht/src/record/namespace_validator.dart'
     as _i19;
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/block_change_event.dart'
     as _i35;

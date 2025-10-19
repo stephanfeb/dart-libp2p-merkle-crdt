@@ -2,7 +2,7 @@ import 'dart:async'; // Added for StreamSubscription
 import 'dart:typed_data';
 
 import 'package:dart_libp2p/dart_libp2p.dart' as libp2p; // Assuming this is the corrected import
-import 'package:dart_cid/dart_cid.dart' as dart_cid; // Using alias for clarity with CID class
+import 'package:dcid/dcid.dart' as dart_cid; // Using alias for clarity with CID class
 import 'package:dart_multihash/dart_multihash.dart' as dart_multihash;
 import 'package:crypto/crypto.dart' as crypto;
 

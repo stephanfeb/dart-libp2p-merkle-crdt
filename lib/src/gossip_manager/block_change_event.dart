@@ -1,5 +1,5 @@
 // lib/src/gossip_manager/block_change_event.dart
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload;
 
 /// Represents the type of change that occurred to a block

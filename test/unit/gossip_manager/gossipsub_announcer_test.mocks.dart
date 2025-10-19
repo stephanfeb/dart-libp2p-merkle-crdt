@@ -6,7 +6,7 @@
 import 'dart:async' as _i17;
 import 'dart:typed_data' as _i27;
 
-import 'package:dart_cid/dart_cid.dart' as _i15;
+import 'package:dcid/dcid.dart' as _i15;
 import 'package:dart_libp2p/core/connmgr/conn_manager.dart' as _i6;
 import 'package:dart_libp2p/core/crypto/keys.dart' as _i28;
 import 'package:dart_libp2p/core/event/bus.dart' as _i7;

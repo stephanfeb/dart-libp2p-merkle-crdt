@@ -21,10 +21,10 @@ import 'package:dart_libp2p/p2p/transport/multiplexing/yamux/session.dart';
 import 'package:dart_libp2p/p2p/transport/multiplexing/multiplexer.dart';
 import 'package:dart_libp2p/config/stream_muxer.dart';
 import 'package:dart_libp2p/p2p/transport/udx_transport.dart';
-import 'package:dart_udx/udx.dart';
+import 'package:dart_udx/dart_udx.dart';
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_transport;
 import 'package:dart_libp2p/core/network/rcmgr.dart'; // Interface - Corrected Path
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT; // Added for IpfsDHT
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' show IpfsDHT; // Added for IpfsDHT
 import 'package:dart_libp2p/p2p/network/swarm/swarm.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart';
 import 'package:dart_libp2p/p2p/host/peerstore/pstoremem.dart';

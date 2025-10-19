@@ -2,7 +2,7 @@ import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'activity.dart'; // Provides Activity, activityStreamsContext
 
 /// Represents a "Like" activity in the ActivityPub-inspired model.

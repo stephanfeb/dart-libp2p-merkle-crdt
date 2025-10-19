@@ -13,7 +13,7 @@ It's designed to be used in conjunction with the `merkledag` package for the cor
 *   **Merkle-CRDT State Synchronization:** Keeps Merkle-CRDT instances eventually consistent across multiple libp2p peers.
 *   **GossipSub for Head Announcements:** Efficiently disseminates new CRDT state heads (root CIDs) using `dart_libp2p_pubsub`.
 *   **Direct P2P Stream-based DAG Syncing:** Fetches only the necessary Merkle-DAG nodes directly from peers, minimizing redundant data transfer.
-*   **DHT Provider Discovery:** Can leverage a Kademlia DHT (e.g., `dart_libp2p_kat_dht`) to find peers holding specific DAG nodes.
+*   **DHT Provider Discovery:** Can leverage a Kademlia DHT (e.g., `dart_libp2p_kad_dht`) to find peers holding specific DAG nodes.
 *   **Local Block Storage:** Includes an in-memory block store (`InMemoryBlockStore`) and an interface (`BlockStore`) for custom persistent storage solutions.
 *   **Centralized Management:** Provides a `MerkleCrdtGossipManager` class to orchestrate the CRDT instance, DAG syncer, and broadcaster.
 *   **Generic:** Works with any CRDT payload type `P` that implements `CRDTPayload<V>` from the `merkledag` package.
@@ -33,7 +33,7 @@ It's designed to be used in conjunction with the `merkledag` package for the cor
 *   A working Dart environment.
 *   A configured libp2p `Host` instance from `dart_libp2p`.
 *   A `PubSub` instance from `dart_libp2p_pubsub` (typically using `GossipSubRouter`).
-*   Optionally, an `IpfsDHT` instance from `dart_libp2p_kat_dht` if DHT provider discovery is desired.
+*   Optionally, an `IpfsDHT` instance from `dart_libp2p_kad_dht` if DHT provider discovery is desired.
 
 ### Add Dependencies
 
@@ -54,7 +54,7 @@ dependencies:
     path: [path_to_dart_libp2p_package] # e.g., /Users/stephanfeb/IdeaProjects/dart-libp2p
   dart_libp2p_pubsub:
     path: [path_to_dart_libp2p_pubsub_package] # e.g., /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-pubsub
-  dart_libp2p_kat_dht: # Optional, for DHT support in P2PStreamDagFetcher
+  dart_libp2p_kad_dht: # Optional, for DHT support in P2PStreamDagFetcher
     path: [path_to_dart_libp2p_kat_dht_package] # e.g., /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-kat-dht
   
   # Other common dependencies

@@ -11,7 +11,7 @@ import 'package:dart_libp2p/core/peerstore.dart'; // For AddressTTL
 import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart'; // For GossipSub, Message
-import 'package:dart_udx/udx.dart';
+import 'package:dart_udx/dart_udx.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 

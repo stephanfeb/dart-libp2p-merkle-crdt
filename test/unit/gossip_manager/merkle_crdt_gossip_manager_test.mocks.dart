@@ -7,7 +7,7 @@ import 'dart:async' as _i7;
 import 'dart:collection' as _i10;
 import 'dart:typed_data' as _i14;
 
-import 'package:dart_cid/dart_cid.dart' as _i5;
+import 'package:dcid/dcid.dart' as _i5;
 import 'package:dart_libp2p/core/peer/peer_id.dart' as _i6;
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/gossipsub_announcer.dart'
     as _i15;

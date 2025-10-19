@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/activity.dart';
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/like_activity.dart';
 import 'package:test/test.dart';

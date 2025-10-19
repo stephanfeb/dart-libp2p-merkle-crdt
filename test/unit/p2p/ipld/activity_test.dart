@@ -1,7 +1,7 @@
 import 'dart:convert' show jsonEncode, jsonDecode; // Added jsonDecode
 import 'dart:typed_data';
 import 'package:test/test.dart';
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p_merkle_crdt/src/p2p/ipld/activity.dart';
 import 'package:cbor/cbor.dart'; // Import for cbor.decode and CborValue types
 

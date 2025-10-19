@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 
 import 'bitswap/bitswap.dart';
 // Import the IBlockStore interface from the bitswap package

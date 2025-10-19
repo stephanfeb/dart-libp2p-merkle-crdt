@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/network/stream.dart' show P2PStream;
 import 'package:dart_libp2p/core/network/context.dart' show Context;

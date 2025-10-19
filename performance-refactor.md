@@ -771,3 +771,1106 @@ With Phase 2 clean architecture implemented, the foundation is ready for Phase 3
 
 *Phase 2 Status: ✅ **COMPLETED** - Clean architecture implemented*
 *Ready to proceed to Phase 3: Performance Optimization*
+
+## Phase 3: Performance Optimization Implementation Plan
+
+### Executive Summary
+
+With Phase 2's clean architecture foundation in place, Phase 3 focuses on advanced performance optimizations to maximize network efficiency while maintaining the simplified codebase. The goal is to achieve **80%+ reduction in announcement traffic** and **50%+ reduction in connection overhead** through intelligent batching, monitoring, and resource management.
+
+### Core Optimization Principles
+
+1. **Batch Operations** - Group related operations to minimize network calls
+2. **Smart Resource Management** - Reuse connections and optimize resource allocation  
+3. **Data-Driven Optimization** - Use real-time metrics to guide improvements
+4. **Configurable Performance** - Allow tuning for different network scenarios
+
+---
+
+## 3.1 Batching Mechanism Implementation 📦
+
+### **Goal**: Reduce announcement traffic by 60-80% through intelligent batching
+
+#### **3.1.1 CID Announcement Batching**
+**File**: `lib/src/gossip_manager/merkle_crdt_gossip_manager.dart`
+**Status**: 🔄 **PENDING**
+
+**New Batching Manager Class**:
+```dart
+class CIDAnnouncement Batcher {
+  final Duration batchWindow;
+  final int maxBatchSize;
+  final GossipSubAnnouncer _announcer;
+  final List<String> _pendingAnnouncements = [];
+  Timer? _batchTimer;
+  final Logger _logger = Logger('CIDAnnouncement Batcher');
+
+  CIDAnnouncement Batcher(
+    this._announcer, {
+    this.batchWindow = const Duration(milliseconds: 200),
+    this.maxBatchSize = 10,
+  });
+
+  /// Adds a CID to the batch for announcement
+  Future<void> addToBatch(String cidString) async {
+    _pendingAnnouncements.add(cidString);
+    _logger.fine('Added CID $cidString to batch (${_pendingAnnouncements.length}/${maxBatchSize})');
+
+    // Start timer if first item in batch
+    if (_pendingAnnouncements.length == 1) {
+      _batchTimer = Timer(batchWindow, _flushBatch);
+    }
+
+    // Flush immediately if batch is full
+    if (_pendingAnnouncements.length >= maxBatchSize) {
+      await _flushBatch();
+    }
+  }
+
+  /// Flushes the current batch as a single announcement
+  Future<void> _flushBatch() async {
+    if (_pendingAnnouncements.isEmpty) return;
+    
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    
+    final batch = List<String>.from(_pendingAnnouncements);
+    _pendingAnnouncements.clear();
+    
+    _logger.info('Flushing batch of ${batch.length} CID announcements');
+    
+    // Single batch announcement instead of individual announcements
+    final batchMessage = {
+      'type': 'cid_batch',
+      'cids': batch,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+    
+    await _announcer.broadcast('BATCH:${jsonEncode(batchMessage)}');
+  }
+
+  /// Closes the batcher and flushes any pending announcements
+  Future<void> close() async {
+    await _flushBatch();
+  }
+}
+```
+
+**Integration with Existing Broadcast**:
+```dart
+class _SyncAwareBroadcaster implements Broadcaster {
+  final CIDAnnouncement Batcher _batcher;
+
+  @override
+  Future<void> broadcast(String cidString) async {
+    _logger.info('broadcast: Adding CID $cidString to batch (Phase 3 optimization)');
+    // PHASE 3: Use batching instead of immediate broadcast
+    await _batcher.addToBatch(cidString);
+  }
+
+  @override
+  Stream<String> subscribe() {
+    return _originalAnnouncer.subscribe().asyncMap((message) async {
+      try {
+        // Handle both individual CID announcements and batches
+        if (message.startsWith('BATCH:')) {
+          await _handleBatchAnnouncement(message.substring('BATCH:'.length));
+          return message;
+        } else {
+          // Regular CID announcement
+          _syncDetectionHandler(message).catchError((error) {
+            _logger.warning('Sync detection error for $message: $error');
+          });
+          return message;
+        }
+      } catch (e) {
+        _logger.severe('Error processing message "$message": $e');
+        return message;
+      }
+    });
+  }
+
+  /// Handles batch CID announcements
+  Future<void> _handleBatchAnnouncement(String batchJson) async {
+    try {
+      final batch = jsonDecode(batchJson) as Map<String, dynamic>;
+      final cids = (batch['cids'] as List<dynamic>).cast<String>();
+      
+      _logger.info('Received batch announcement with ${cids.length} CIDs');
+      
+      // Process each CID in the batch
+      for (final cid in cids) {
+        _syncDetectionHandler(cid).catchError((error) {
+          _logger.warning('Sync detection error for batched CID $cid: $error');
+        });
+      }
+    } catch (e, s) {
+      _logger.severe('Error handling batch announcement: $e', e, s);
+    }
+  }
+}
+```
+
+**Expected Impact**: 📊
+- **60-80% reduction** in GossipSub message count
+- **Improved network utilization** through batching efficiency
+- **Reduced GossipSub protocol overhead** per operation
+
+#### **3.1.2 DHT Operation Batching**
+**File**: `lib/src/gossip_manager/dht_provider.dart`
+**Status**: 🔄 **PENDING**
+
+**Enhanced DHT Provider with Batching**:
+```dart
+class BatchedDHTProvider extends DHTProvider {
+  final Duration batchWindow;
+  final int maxBatchSize;
+  final List<CID> _pendingProvides = [];
+  Timer? _provideTimer;
+  final Logger _logger = Logger('BatchedDHTProvider');
+
+  BatchedDHTProvider(IpfsDHTv2? dht, {
+    this.batchWindow = const Duration(milliseconds: 150),
+    this.maxBatchSize = 5,
+  }) : super(dht);
+
+  @override
+  Future<void> provide(CID cid) async {
+    if (!isAvailable) return;
+
+    _pendingProvides.add(cid);
+    _logger.fine('Added CID $cid to DHT provide batch (${_pendingProvides.length}/${maxBatchSize})');
+
+    // Start timer if first item
+    if (_pendingProvides.length == 1) {
+      _provideTimer = Timer(batchWindow, _flushProvides);
+    }
+
+    // Flush if batch full
+    if (_pendingProvides.length >= maxBatchSize) {
+      await _flushProvides();
+    }
+  }
+
+  Future<void> _flushProvides() async {
+    if (_pendingProvides.isEmpty) return;
+
+    _provideTimer?.cancel();
+    _provideTimer = null;
+
+    final batch = List<CID>.from(_pendingProvides);
+    _pendingProvides.clear();
+
+    _logger.info('Flushing DHT provide batch of ${batch.length} CIDs');
+
+    // Batch provide operations
+    await Future.wait(batch.map((cid) => super.provide(cid)));
+  }
+}
+```
+
+**Expected Impact**: 📊
+- **40-60% reduction** in DHT query frequency
+- **Improved DHT performance** through batched operations
+- **Reduced DHT network load** overall
+
+---
+
+## 3.2 Traffic Monitoring & Metrics 📊
+
+### **Goal**: Implement comprehensive monitoring for data-driven optimization
+
+#### **3.2.1 Traffic Monitoring Infrastructure**
+**File**: `lib/src/monitoring/sync_traffic_monitor.dart`
+**Status**: 🔄 **PENDING**
+
+**Comprehensive Traffic Monitor**:
+```dart
+class SyncTrafficMonitor {
+  // Message counters
+  int announcementsSent = 0;
+  int announcementsReceived = 0;
+  int batchAnnouncementsSent = 0;
+  int batchAnnouncementsReceived = 0;
+  
+  // Fetch metrics
+  int fetchRequests = 0;
+  int fetchSuccesses = 0;
+  int fetchFailures = 0;
+  final List<Duration> fetchLatencies = [];
+  
+  // DHT metrics
+  int dhtProvides = 0;
+  int dhtQueries = 0;
+  int dhtQuerySuccesses = 0;
+  final List<Duration> dhtLatencies = [];
+  
+  // Connection metrics
+  int p2pConnectionsOpened = 0;
+  int p2pConnectionsReused = 0;
+  int p2pConnectionErrors = 0;
+  
+  // Traffic metrics
+  int bytesUploaded = 0;
+  int bytesDownloaded = 0;
+  final Map<String, int> messageTypeCounts = {};
+  
+  DateTime _startTime = DateTime.now();
+
+  /// Records an announcement being sent
+  void recordAnnouncementSent({bool isBatch = false}) {
+    if (isBatch) {
+      batchAnnouncementsSent++;
+    } else {
+      announcementsSent++;
+    }
+  }
+
+  /// Records an announcement being received
+  void recordAnnouncementReceived({bool isBatch = false, int? batchSize}) {
+    if (isBatch) {
+      batchAnnouncementsReceived++;
+    } else {
+      announcementsReceived++;
+    }
+  }
+
+  /// Records a fetch operation
+  void recordFetch({required bool success, required Duration latency}) {
+    fetchRequests++;
+    if (success) {
+      fetchSuccesses++;
+    } else {
+      fetchFailures++;
+    }
+    fetchLatencies.add(latency);
+  }
+
+  /// Records a DHT operation
+  void recordDHTOperation({
+    required String type, // 'provide' or 'query'
+    required bool success,
+    required Duration latency,
+  }) {
+    if (type == 'provide') {
+      dhtProvides++;
+    } else if (type == 'query') {
+      dhtQueries++;
+      if (success) dhtQuerySuccesses++;
+    }
+    dhtLatencies.add(latency);
+  }
+
+  /// Records connection usage
+  void recordConnection({required bool isReused, bool hasError = false}) {
+    if (hasError) {
+      p2pConnectionErrors++;
+    } else if (isReused) {
+      p2pConnectionsReused++;
+    } else {
+      p2pConnectionsOpened++;
+    }
+  }
+
+  /// Records network traffic
+  void recordTraffic({required int uploaded, required int downloaded}) {
+    bytesUploaded += uploaded;
+    bytesDownloaded += downloaded;
+  }
+
+  /// Gets comprehensive metrics
+  Map<String, dynamic> getMetrics() {
+    final uptime = DateTime.now().difference(_startTime);
+    
+    return {
+      // Efficiency metrics
+      'fetch_success_rate': fetchRequests > 0 ? fetchSuccesses / fetchRequests : 0.0,
+      'dht_success_rate': dhtQueries > 0 ? dhtQuerySuccesses / dhtQueries : 0.0,
+      'connection_reuse_rate': (p2pConnectionsOpened + p2pConnectionsReused) > 0 
+          ? p2pConnectionsReused / (p2pConnectionsOpened + p2pConnectionsReused) : 0.0,
+      
+      // Performance metrics
+      'avg_fetch_latency_ms': fetchLatencies.isNotEmpty 
+          ? fetchLatencies.map((d) => d.inMilliseconds).reduce((a, b) => a + b) / fetchLatencies.length 
+          : 0.0,
+      'avg_dht_latency_ms': dhtLatencies.isNotEmpty 
+          ? dhtLatencies.map((d) => d.inMilliseconds).reduce((a, b) => a + b) / dhtLatencies.length 
+          : 0.0,
+      
+      // Traffic metrics
+      'total_bytes': bytesUploaded + bytesDownloaded,
+      'bytes_per_second': uptime.inSeconds > 0 ? (bytesUploaded + bytesDownloaded) / uptime.inSeconds : 0.0,
+      'announcements_per_minute': uptime.inMinutes > 0 ? (announcementsSent + batchAnnouncementsSent) / uptime.inMinutes : 0.0,
+      
+      // Batching efficiency
+      'batch_efficiency': (announcementsSent + batchAnnouncementsSent) > 0 
+          ? batchAnnouncementsSent / (announcementsSent + batchAnnouncementsSent) : 0.0,
+      
+      // Raw counters
+      'announcements_sent': announcementsSent,
+      'batch_announcements_sent': batchAnnouncementsSent,
+      'fetch_requests': fetchRequests,
+      'dht_provides': dhtProvides,
+      'dht_queries': dhtQueries,
+      'connections_opened': p2pConnectionsOpened,
+      'connections_reused': p2pConnectionsReused,
+      'uptime_seconds': uptime.inSeconds,
+    };
+  }
+
+  /// Resets all metrics
+  void reset() {
+    announcementsSent = 0;
+    announcementsReceived = 0;
+    batchAnnouncementsSent = 0;
+    batchAnnouncementsReceived = 0;
+    fetchRequests = 0;
+    fetchSuccesses = 0;
+    fetchFailures = 0;
+    fetchLatencies.clear();
+    dhtProvides = 0;
+    dhtQueries = 0;
+    dhtQuerySuccesses = 0;
+    dhtLatencies.clear();
+    p2pConnectionsOpened = 0;
+    p2pConnectionsReused = 0;
+    p2pConnectionErrors = 0;
+    bytesUploaded = 0;
+    bytesDownloaded = 0;
+    messageTypeCounts.clear();
+    _startTime = DateTime.now();
+  }
+}
+```
+
+#### **3.2.2 Real-Time Monitoring Dashboard**
+**File**: `lib/src/monitoring/performance_dashboard.dart`
+**Status**: 🔄 **PENDING**
+
+**Performance Dashboard Implementation**:
+```dart
+class PerformanceDashboard {
+  final SyncTrafficMonitor _monitor;
+  final Duration reportingInterval;
+  Timer? _reportingTimer;
+  final Logger _logger = Logger('PerformanceDashboard');
+
+  PerformanceDashboard(
+    this._monitor, {
+    this.reportingInterval = const Duration(minutes: 1),
+  });
+
+  /// Starts periodic performance reporting
+  void startReporting() {
+    _reportingTimer?.cancel();
+    _reportingTimer = Timer.periodic(reportingInterval, (_) {
+      _logPerformanceReport();
+    });
+    _logger.info('Performance dashboard started with ${reportingInterval.inSeconds}s intervals');
+  }
+
+  /// Stops performance reporting
+  void stopReporting() {
+    _reportingTimer?.cancel();
+    _reportingTimer = null;
+    _logger.info('Performance dashboard stopped');
+  }
+
+  /// Logs comprehensive performance report
+  void _logPerformanceReport() {
+    final metrics = _monitor.getMetrics();
+    
+    _logger.info('=== PERFORMANCE REPORT ===');
+    _logger.info('📊 Efficiency:');
+    _logger.info('  - Fetch Success Rate: ${(metrics['fetch_success_rate'] * 100).toStringAsFixed(1)}%');
+    _logger.info('  - DHT Success Rate: ${(metrics['dht_success_rate'] * 100).toStringAsFixed(1)}%');
+    _logger.info('  - Connection Reuse Rate: ${(metrics['connection_reuse_rate'] * 100).toStringAsFixed(1)}%');
+    _logger.info('  - Batch Efficiency: ${(metrics['batch_efficiency'] * 100).toStringAsFixed(1)}%');
+    
+    _logger.info('⚡ Performance:');
+    _logger.info('  - Avg Fetch Latency: ${metrics['avg_fetch_latency_ms'].toStringAsFixed(0)}ms');
+    _logger.info('  - Avg DHT Latency: ${metrics['avg_dht_latency_ms'].toStringAsFixed(0)}ms');
+    
+    _logger.info('🌐 Traffic:');
+    _logger.info('  - Total Bytes: ${_formatBytes(metrics['total_bytes'])}');
+    _logger.info('  - Bytes/Second: ${_formatBytes(metrics['bytes_per_second'].toInt())}/s');
+    _logger.info('  - Announcements/Min: ${metrics['announcements_per_minute'].toStringAsFixed(1)}');
+    
+    _logger.info('📈 Counters:');
+    _logger.info('  - Announcements Sent: ${metrics['announcements_sent']} (${metrics['batch_announcements_sent']} batched)');
+    _logger.info('  - Fetch Requests: ${metrics['fetch_requests']}');
+    _logger.info('  - DHT Operations: ${metrics['dht_provides']} provides, ${metrics['dht_queries']} queries');
+    _logger.info('  - Connections: ${metrics['connections_opened']} new, ${metrics['connections_reused']} reused');
+    _logger.info('========================');
+  }
+
+  /// Formats bytes for human-readable display
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
+  }
+
+  /// Gets current performance snapshot
+  Map<String, dynamic> getCurrentSnapshot() => _monitor.getMetrics();
+}
+```
+
+**Expected Impact**: 📊
+- **Real-time visibility** into network performance
+- **Data-driven optimization** opportunities identification
+- **Performance regression detection** through monitoring
+- **Bottleneck identification** and resolution
+
+---
+
+## 3.3 Smart Resource Management 🧠
+
+### **Goal**: Reduce connection overhead by 30-50% through intelligent resource usage
+
+#### **3.3.1 Connection Pool Manager**
+**File**: `lib/src/connection/connection_pool_manager.dart`
+**Status**: 🔄 **PENDING**
+
+**Smart Connection Pooling**:
+```dart
+class ConnectionPoolManager {
+  final Host _host;
+  final Map<String, P2PStream> _activeStreams = {};
+  final Map<String, DateTime> _lastUsed = {};
+  final Duration maxIdleTime;
+  final int maxPoolSize;
+  Timer? _cleanupTimer;
+  final Logger _logger = Logger('ConnectionPoolManager');
+
+  ConnectionPoolManager(
+    this._host, {
+    this.maxIdleTime = const Duration(minutes: 5),
+    this.maxPoolSize = 20,
+  }) {
+    _startCleanupTimer();
+  }
+
+  /// Gets or creates a stream to a peer
+  Future<P2PStream?> getStream(PeerId peerId, String protocolId) async {
+    final peerKey = '${peerId.toBase58()}_$protocolId';
+    
+    // Check for existing stream
+    final existingStream = _activeStreams[peerKey];
+    if (existingStream != null && !existingStream.isClosed) {
+      _lastUsed[peerKey] = DateTime.now();
+      _logger.fine('Reusing existing stream to ${peerId.toBase58().substring(0, 6)}');
+      return existingStream;
+    }
+
+    // Remove invalid stream
+    if (existingStream != null) {
+      _activeStreams.remove(peerKey);
+      _lastUsed.remove(peerKey);
+    }
+
+    // Create new stream
+    try {
+      final newStream = await _host.newStream(peerId, [protocolId], Context());
+      _activeStreams[peerKey] = newStream;
+      _lastUsed[peerKey] = DateTime.now();
+      
+      _logger.info('Created new stream to ${peerId.toBase58().substring(0, 6)} (pool size: ${_activeStreams.length})');
+      return newStream;
+    } catch (e) {
+      _logger.warning('Failed to create stream to ${peerId.toBase58().substring(0, 6)}: $e');
+      return null;
+    }
+  }
+
+  /// Starts periodic cleanup of idle connections
+  void _startCleanupTimer() {
+    _cleanupTimer = Timer.periodic(Duration(minutes: 1), (_) {
+      _cleanupIdleConnections();
+    });
+  }
+
+  /// Cleans up idle connections
+  void _cleanupIdleConnections() {
+    final now = DateTime.now();
+    final toRemove = <String>[];
+
+    for (final entry in _lastUsed.entries) {
+      if (now.difference(entry.value) > maxIdleTime) {
+        toRemove.add(entry.key);
+      }
+    }
+
+    for (final key in toRemove) {
+      final stream = _activeStreams[key];
+      if (stream != null && !stream.isClosed) {
+        stream.close().catchError((e) => _logger.warning('Error closing idle stream: $e'));
+      }
+      _activeStreams.remove(key);
+      _lastUsed.remove(key);
+      _logger.fine('Cleaned up idle connection: $key');
+    }
+
+    if (toRemove.isNotEmpty) {
+      _logger.info('Cleaned up ${toRemove.length} idle connections (pool size: ${_activeStreams.length})');
+    }
+  }
+
+  /// Gets pool statistics
+  Map<String, dynamic> getStats() {
+    return {
+      'active_streams': _activeStreams.length,
+      'max_pool_size': maxPoolSize,
+      'pool_utilization': maxPoolSize > 0 ? _activeStreams.length / maxPoolSize : 0.0,
+    };
+  }
+
+  /// Closes all connections and stops cleanup
+  Future<void> close() async {
+    _cleanupTimer?.cancel();
+    
+    final closeOperations = _activeStreams.values
+        .map((stream) => stream.close().catchError((e) => null));
+    
+    await Future.wait(closeOperations);
+    _activeStreams.clear();
+    _lastUsed.clear();
+  }
+}
+```
+
+#### **3.3.2 Intelligent Provider Selection**
+**File**: `lib/src/gossip_manager/smart_provider_selector.dart`
+**Status**: 🔄 **PENDING**
+
+**Smart Provider Selection Algorithm**:
+```dart
+class SmartProviderSelector {
+  final Map<String, ProviderPerformance> _providerStats = {};
+  final Logger _logger = Logger('SmartProviderSelector');
+
+  /// Selects the best providers based on historical performance
+  List<AddrInfo> selectBestProviders(
+    List<AddrInfo> availableProviders, {
+    int maxProviders = 3,
+  }) {
+    if (availableProviders.length <= maxProviders) {
+      return availableProviders;
+    }
+
+    // Sort providers by performance score
+    final scored = availableProviders.map((provider) {
+      final peerId = provider.id.toBase58();
+      final stats = _providerStats[peerId];
+      final score = stats?.calculateScore() ?? 0.5; // Default score for new providers
+      return ScoredProvider(provider, score);
+    }).toList();
+
+    scored.sort((a, b) => b.score.compareTo(a.score));
+
+    final selected = scored.take(maxProviders).map((sp) => sp.provider).toList();
+    
+    _logger.info('Selected ${selected.length} best providers from ${availableProviders.length} available');
+    return selected;
+  }
+
+  /// Records provider performance
+  void recordProviderPerformance(
+    String peerId, {
+    required bool success,
+    required Duration responseTime,
+  }) {
+    final stats = _providerStats.putIfAbsent(peerId, () => ProviderPerformance(peerId));
+    stats.recordAttempt(success: success, responseTime: responseTime);
+  }
+
+  /// Gets provider statistics
+  Map<String, dynamic> getStats() {
+    return {
+      'tracked_providers': _providerStats.length,
+      'provider_scores': _providerStats.map((peerId, stats) => 
+          MapEntry(peerId.substring(0, 6), stats.calculateScore())),
+    };
+  }
+}
+
+class ProviderPerformance {
+  final String peerId;
+  int totalAttempts = 0;
+  int successfulAttempts = 0;
+  double averageResponseTime = 0.0;
+  DateTime? lastAttempt;
+
+  ProviderPerformance(this.peerId);
+
+  void recordAttempt({required bool success, required Duration responseTime}) {
+    totalAttempts++;
+    lastAttempt = DateTime.now();
+    
+    if (success) {
+      successfulAttempts++;
+    }
+
+    // Update rolling average response time
+    if (totalAttempts == 1) {
+      averageResponseTime = responseTime.inMilliseconds.toDouble();
+    } else {
+      averageResponseTime = (averageResponseTime * 0.8) + (responseTime.inMilliseconds * 0.2);
+    }
+  }
+
+  double calculateScore() {
+    if (totalAttempts == 0) return 0.5;
+
+    final successRate = successfulAttempts / totalAttempts;
+    final speedScore = averageResponseTime > 0 ? 1000 / averageResponseTime : 0.0;
+    final recencyBonus = lastAttempt != null && 
+        DateTime.now().difference(lastAttempt!).inHours < 1 ? 0.1 : 0.0;
+
+    return (successRate * 0.7) + (speedScore * 0.2) + recencyBonus;
+  }
+}
+
+class ScoredProvider {
+  final AddrInfo provider;
+  final double score;
+
+  ScoredProvider(this.provider, this.score);
+}
+```
+
+**Expected Impact**: 📊
+- **30-50% improvement** in fetch success rates
+- **Reduced latency** through better provider selection
+- **Improved resource utilization** through connection pooling
+
+---
+
+## 3.4 Advanced Optimizations ⚡
+
+### **Goal**: Additional 20-30% traffic reduction through intelligent optimizations
+
+#### **3.4.1 Announcement Deduplication**
+**File**: `lib/src/gossip_manager/announcement_deduplicator.dart`
+**Status**: 🔄 **PENDING**
+
+**Smart Deduplication System**:
+```dart
+class AnnouncementDeduplicator {
+  final Map<String, DateTime> _recentAnnouncements = {};
+  final Duration deduplicationWindow;
+  final int maxCacheSize;
+  Timer? _cleanupTimer;
+  final Logger _logger = Logger('AnnouncementDeduplicator');
+
+  AnnouncementDeduplicator({
+    this.deduplicationWindow = const Duration(minutes: 5),
+    this.maxCacheSize = 1000,
+  }) {
+    _startCleanupTimer();
+  }
+
+  /// Checks if a CID should be announced (not recently announced)
+  bool shouldAnnounce(String cidString) {
+    final lastAnnounced = _recentAnnouncements[cidString];
+    final now = DateTime.now();
+
+    if (lastAnnounced == null || now.difference(lastAnnounced) > deduplicationWindow) {
+      _recentAnnouncements[cidString] = now;
+      _logger.fine('Allowing announcement for CID $cidString');
+      return true;
+    }
+
+    _logger.fine('Skipping duplicate announcement for CID $cidString (announced ${now.difference(lastAnnounced).inSeconds}s ago)');
+    return false;
+  }
+
+  void _startCleanupTimer() {
+    _cleanupTimer = Timer.periodic(Duration(minutes: 1), (_) {
+      _cleanupOldEntries();
+    });
+  }
+
+  void _cleanupOldEntries() {
+    final now = DateTime.now();
+    final cutoff = now.subtract(deduplicationWindow);
+    
+    _recentAnnouncements.removeWhere((cid, timestamp) => timestamp.isBefore(cutoff));
+    
+    // Enforce max cache size
+    if (_recentAnnouncements.length > maxCacheSize) {
+      final sorted = _recentAnnouncements.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+      
+      final toRemove = sorted.take(_recentAnnouncements.length - maxCacheSize);
+      for (final entry in toRemove) {
+        _recentAnnouncements.remove(entry.key);
+      }
+    }
+  }
+
+  Map<String, dynamic> getStats() {
+    return {
+      'cached_announcements': _recentAnnouncements.length,
+      'max_cache_size': maxCacheSize,
+      'deduplication_window_seconds': deduplicationWindow.inSeconds,
+    };
+  }
+
+  void close() {
+    _cleanupTimer?.cancel();
+    _recentAnnouncements.clear();
+  }
+}
+```
+
+#### **3.4.2 Configurable Performance Parameters**
+**File**: `lib/src/config/performance_config.dart`
+**Status**: 🔄 **PENDING**
+
+**Comprehensive Performance Configuration**:
+```dart
+class PerformanceConfig {
+  // Batching configuration
+  final Duration announcementBatchWindow;
+  final int maxAnnouncementBatchSize;
+  final Duration dhtBatchWindow;
+  final int maxDHTBatchSize;
+
+  // Connection management
+  final Duration connectionIdleTimeout;
+  final int maxConnectionPoolSize;
+  final int maxProvidersPerQuery;
+
+  // Deduplication settings
+  final Duration deduplicationWindow;
+  final int maxDeduplicationCacheSize;
+
+  // Monitoring configuration
+  final Duration metricsReportingInterval;
+  final bool enableDetailedLogging;
+
+  // DHT optimization
+  final Duration dhtProvideVerificationDelay;
+  final int dhtQueryRetries;
+  final Duration dhtQueryTimeout;
+
+  // Sync optimization
+  final Duration maxSyncWaitTime;
+  final int maxConcurrentFetches;
+
+  const PerformanceConfig({
+    // Batching defaults
+    this.announcementBatchWindow = const Duration(milliseconds: 200),
+    this.maxAnnouncementBatchSize = 10,
+    this.dhtBatchWindow = const Duration(milliseconds: 150),
+    this.maxDHTBatchSize = 5,
+
+    // Connection defaults
+    this.connectionIdleTimeout = const Duration(minutes: 5),
+    this.maxConnectionPoolSize = 20,
+    this.maxProvidersPerQuery = 3,
+
+    // Deduplication defaults
+    this.deduplicationWindow = const Duration(minutes: 5),
+    this.maxDeduplicationCacheSize = 1000,
+
+    // Monitoring defaults
+    this.metricsReportingInterval = const Duration(minutes: 1),
+    this.enableDetailedLogging = false,
+
+    // DHT defaults
+    this.dhtProvideVerificationDelay = const Duration(milliseconds: 50),
+    this.dhtQueryRetries = 2,
+    this.dhtQueryTimeout = const Duration(seconds: 10),
+
+    // Sync defaults
+    this.maxSyncWaitTime = const Duration(seconds: 30),
+    this.maxConcurrentFetches = 3,
+  });
+
+  /// Creates a configuration optimized for high-traffic scenarios
+  factory PerformanceConfig.highTraffic() {
+    return const PerformanceConfig(
+      announcementBatchWindow: Duration(milliseconds: 300),
+      maxAnnouncementBatchSize: 20,
+      dhtBatchWindow: Duration(milliseconds: 200),
+      maxDHTBatchSize = 10,
+      deduplicationWindow: Duration(minutes: 10),
+      maxConnectionPoolSize: 50,
+    );
+  }
+
+  /// Creates a configuration optimized for low-latency scenarios
+  factory PerformanceConfig.lowLatency() {
+    return const PerformanceConfig(
+      announcementBatchWindow: Duration(milliseconds: 100),
+      maxAnnouncementBatchSize: 5,
+      dhtBatchWindow: Duration(milliseconds: 50),
+      maxDHTBatchSize: 3,
+      dhtProvideVerificationDelay: Duration(milliseconds: 25),
+      maxSyncWaitTime: Duration(seconds: 10),
+    );
+  }
+
+  /// Creates a configuration optimized for resource-constrained devices
+  factory PerformanceConfig.resourceConstrained() {
+    return const PerformanceConfig(
+      maxConnectionPoolSize: 5,
+      maxProvidersPerQuery: 2,
+      maxDeduplicationCacheSize: 500,
+      maxConcurrentFetches: 2,
+      enableDetailedLogging: false,
+    );
+  }
+}
+```
+
+---
+
+## 3.5 Integration and Testing Strategy
+
+### **3.5.1 Phase 3 Integration Test**
+**File**: `test/integration/phase3_performance_test.dart`
+**Status**: 🔄 **PENDING**
+
+**Comprehensive Performance Testing**:
+```dart
+import 'package:test/test.dart';
+import 'package:logging/logging.dart';
+import '../test_utils.dart';
+
+void main() {
+  late TestNetworkStack nodeA;
+  late TestNetworkStack nodeB;
+  late SyncTrafficMonitor monitor;
+  final _logger = Logger('Phase3PerformanceTest');
+
+  group('Phase 3 Performance Optimization Tests', () {
+    setUp(() async {
+      final networkSetup = await setupTwoNodeNetwork();
+      nodeA = networkSetup['nodeA']!;
+      nodeB = networkSetup['nodeB']!;
+      monitor = SyncTrafficMonitor();
+
+      // Configure nodes with Phase 3 optimizations
+      await nodeA.configurePerformanceOptimizations(PerformanceConfig.highTraffic());
+      await nodeB.configurePerformanceOptimizations(PerformanceConfig.highTraffic());
+    });
+
+    tearDown(() async {
+      await nodeA.close();
+      await nodeB.close();
+    });
+
+    test('Batching reduces traffic for multiple rapid updates', () async {
+      _logger.info('=== Testing Phase 3 Batching Optimization ===');
+      
+      monitor.reset();
+      final updates = List.generate(10, (i) => 'batch-test-$i-${DateTime.now().millisecondsSinceEpoch}');
+      
+      // Apply updates rapidly
+      final startTime = DateTime.now();
+      for (final update in updates) {
+        await nodeA.applyUpdate(update);
+        await Future.delayed(Duration(milliseconds: 50)); // Rapid succession
+      }
+      
+      // Wait for sync completion
+      await Future.delayed(Duration(seconds: 3));
+      
+      final syncTime = DateTime.now().difference(startTime);
+      final metrics = monitor.getMetrics();
+      final stateB = await nodeB.getCurrentState();
+      
+      _logger.info('Batching Results:');
+      _logger.info('- Total sync time: ${syncTime.inMilliseconds}ms');
+      _logger.info('- Batch announcements: ${metrics['batch_announcements_sent']}');
+      _logger.info('- Individual announcements: ${metrics['announcements_sent']}');
+      _logger.info('- Batch efficiency: ${(metrics['batch_efficiency'] * 100).toStringAsFixed(1)}%');
+      
+      // Verify all updates synchronized
+      for (final update in updates) {
+        expect(stateB, contains(update), reason: 'Update $update should be synchronized');
+      }
+      
+      // Verify batching efficiency
+      expect(metrics['batch_efficiency'], greaterThan(0.7), 
+        reason: 'Should use batching for >70% of announcements');
+      
+      expect(metrics['batch_announcements_sent'], greaterThan(0),
+        reason: 'Should send at least one batch announcement');
+    });
+
+    test('Connection pooling reduces P2P overhead', () async {
+      _logger.info('=== Testing Phase 3 Connection Pooling ===');
+      
+      monitor.reset();
+      
+      // Perform multiple fetch operations
+      for (int i = 0; i < 5; i++) {
+        await nodeA.applyUpdate('connection-test-$i');
+        await Future.delayed(Duration(milliseconds: 500));
+      }
+      
+      await Future.delayed(Duration(seconds: 2));
+      final metrics = monitor.getMetrics();
+      
+      _logger.info('Connection Pooling Results:');
+      _logger.info('- Connections opened: ${metrics['connections_opened']}');
+      _logger.info('- Connections reused: ${metrics['connections_reused']}');
+      _logger.info('- Reuse rate: ${(metrics['connection_reuse_rate'] * 100).toStringAsFixed(1)}%');
+      
+      // Verify connection reuse
+      expect(metrics['connection_reuse_rate'], greaterThan(0.5),
+        reason: 'Should reuse connections for >50% of operations');
+    });
+
+    test('Traffic monitoring provides accurate metrics', () async {
+      _logger.info('=== Testing Phase 3 Traffic Monitoring ===');
+      
+      monitor.reset();
+      
+      // Generate monitored activity
+      await nodeA.applyUpdate('monitoring-test');
+      await Future.delayed(Duration(seconds: 2));
+      
+      final metrics = monitor.getMetrics();
+      
+      _logger.info('Monitoring Results:');
+      _logger.info('- Fetch success rate: ${(metrics['fetch_success_rate'] * 100).toStringAsFixed(1)}%');
+      _logger.info('- DHT success rate: ${(metrics['dht_success_rate'] * 100).toStringAsFixed(1)}%');
+      _logger.info('- Average fetch latency: ${metrics['avg_fetch_latency_ms'].toStringAsFixed(0)}ms');
+      _logger.info('- Total bytes transferred: ${metrics['total_bytes']}');
+      
+      // Verify monitoring accuracy
+      expect(metrics['fetch_success_rate'], greaterThan(0.8),
+        reason: 'Should achieve >80% fetch success rate');
+      
+      expect(metrics['avg_fetch_latency_ms'], lessThan(5000),
+        reason: 'Average fetch latency should be <5s');
+      
+      expect(metrics['total_bytes'], greaterThan(0),
+        reason: 'Should track network traffic');
+    });
+
+    test('Overall Phase 3 performance improvements', () async {
+      _logger.info('=== Testing Overall Phase 3 Performance ===');
+      
+      monitor.reset();
+      final startTime = DateTime.now();
+      
+      // Simulate realistic workload
+      final updates = List.generate(20, (i) => 'phase3-test-$i');
+      for (final update in updates) {
+        await nodeA.applyUpdate(update);
+        if (i % 5 == 0) await Future.delayed(Duration(milliseconds: 100));
+      }
+      
+      await Future.delayed(Duration(seconds: 5));
+      
+      final totalTime = DateTime.now().difference(startTime);
+      final metrics = monitor.getMetrics();
+      final stateB = await nodeB.getCurrentState();
+      
+      _logger.info('Phase 3 Overall Results:');
+      _logger.info('- Total time: ${totalTime.inSeconds}s');
+      _logger.info('- Updates synchronized: ${updates.where((u) => stateB.contains(u)).length}/${updates.length}');
+      _logger.info('- Traffic efficiency: ${metrics['batch_efficiency']}');
+      _logger.info('- Connection efficiency: ${metrics['connection_reuse_rate']}');
+      _logger.info('- Bytes transferred: ${metrics['total_bytes']}');
+      
+      // Verify all improvements
+      expect(stateB.length, greaterThanOrEqualTo(updates.length),
+        reason: 'All updates should be synchronized');
+      
+      expect(metrics['batch_efficiency'], greaterThan(0.6),
+        reason: 'Should achieve >60% batching efficiency');
+      
+      expect(metrics['connection_reuse_rate'], greaterThan(0.4),
+        reason: 'Should achieve >40% connection reuse');
+      
+      expect(totalTime.inSeconds, lessThan(10),
+        reason: 'Should complete in reasonable time');
+      
+      _logger.info('✅ Phase 3 Performance Optimization SUCCESSFUL:');
+      _logger.info('  - Batching mechanism implemented ✓');
+      _logger.info('  - Connection pooling working ✓');
+      _logger.info('  - Traffic monitoring active ✓');
+      _logger.info('  - Performance targets achieved ✓');
+    });
+  });
+}
+```
+
+---
+
+## Phase 3 Success Metrics & Timeline
+
+### **Performance Targets**
+- **80%+ reduction** in announcement traffic through batching
+- **50%+ reduction** in connection overhead through pooling  
+- **30%+ improvement** in fetch success rates through smart provider selection
+- **Real-time monitoring** with <1% performance overhead
+- **20-30% additional** traffic reduction through deduplication
+
+### **Timeline (3-4 weeks)**
+
+#### **Week 1: Core Batching**
+- [ ] Implement CID announcement batching
+- [ ] Implement DHT operation batching  
+- [ ] Basic batching integration tests
+- [ ] Performance measurement baseline
+
+#### **Week 2: Resource Management**
+- [ ] Connection pool manager implementation
+- [ ] Smart provider selection algorithm
+- [ ] Resource optimization integration
+- [ ] Connection efficiency tests
+
+#### **Week 3: Monitoring & Analytics**
+- [ ] Traffic monitoring infrastructure
+- [ ] Performance dashboard implementation
+- [ ] Real-time metrics collection
+- [ ] Monitoring integration tests
+
+#### **Week 4: Advanced Optimizations**
+- [ ] Announcement deduplication system
+- [ ] Configurable performance parameters
+- [ ] Comprehensive integration testing
+- [ ] Production deployment preparation
+
+### **Rollout Strategy**
+1. **Feature flags** for each optimization component
+2. **A/B testing** to validate improvements
+3. **Gradual deployment** with monitoring
+4. **Performance validation** at each stage
+5. **Rollback capability** for any regressions
+
+---
+
+## Expected Phase 3 Final Results
+
+### **Traffic Reduction Achievements**
+- **Total network traffic reduction: 85-90%** from original baseline
+- **Announcement traffic: 80%+ reduction** through batching
+- **Connection overhead: 50%+ reduction** through pooling
+- **DHT queries: 60%+ reduction** through batching and caching
+
+### **Performance Improvements**
+- **Sync latency: <2 seconds** for typical operations
+- **Fetch success rate: >95%** through smart provider selection
+- **Resource utilization: 40%+ improvement** through pooling
+- **Real-time monitoring** with comprehensive metrics
+
+### **Code Quality Benefits**
+- **Configurable performance** for different scenarios
+- **Data-driven optimization** through monitoring
+- **Maintainable architecture** built on Phase 2 foundation
+- **Production-ready monitoring** and alerting
+
+---
+
+*Phase 3 Status: 🔄 **READY FOR IMPLEMENTATION***
+*Foundation: Phase 1 (Emergency fixes) + Phase 2 (Clean architecture) ✅ COMPLETED*

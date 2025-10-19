@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart'; // For SetEquality
 import 'package:crypto/crypto.dart' as crypto;
-import 'package:dart_cid/dart_cid.dart' as cid_lib;
+import 'package:dcid/dcid.dart' as cid_lib;
 import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
 import 'package:uuid/uuid.dart';

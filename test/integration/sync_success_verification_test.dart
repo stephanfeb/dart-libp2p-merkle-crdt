@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
@@ -12,8 +12,8 @@ import 'package:dart_libp2p/core/multiaddr.dart' show MultiAddr;
 import 'package:dart_libp2p/core/network/conn.dart' show Connection;
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart' show BasicHost;
 import 'package:dart_libp2p/core/peerstore.dart' show AddressTTL;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart';
-import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore, ProviderStore;
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart';
+import 'package:dart_libp2p_kad_dht/src/providers/provider_store.dart' show MemoryProviderStore, ProviderStore;
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
@@ -23,7 +23,7 @@ import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show GSet, CRDTPayload, MerkleNode;
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart' show PubSub, GossipSubRouter, PubSubMessage;
 
-import 'package:dart_udx/udx.dart';
+import 'package:dart_udx/dart_udx.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 

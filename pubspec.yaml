@@ -10,16 +10,17 @@ environment:
 dependencies:
   # path: ^1.8.0
   crypto: ^3.0.3
-  dart_cid:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-cid
   merkledag:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/merkledag
-  dart_libp2p_kat_dht:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-kat-dht
-  dart_libp2p:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p
+    path: /Users/stephanfeb/IdeaProjects/agentic/merkledag
+
   dart_libp2p_pubsub:
-    path: /Users/stephanfeb/IdeaProjects/bsv_apps/dart-libp2p-pubsub
+    path: /Users/stephanfeb/IdeaProjects/agentic/dart-libp2p-pubsub
+  dart_libp2p:
+    path: /Users/stephanfeb/IdeaProjects/agentic/dart-libp2p
+  dart_libp2p_kad_dht:
+    path: /Users/stephanfeb/IdeaProjects/agentic/dart-libp2p-kad-dht
+
+  dcid: ^1.0.0
 
   collection: ^1.17.1
   logging: ^1.2.0

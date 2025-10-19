@@ -1,7 +1,7 @@
 // lib/src/gossip_manager/merkle_crdt_gossip_manager.dart
 import 'dart:async';
 
-import 'package:dart_cid/dart_cid.dart' show CID; // Import CID
+import 'package:dcid/dcid.dart' show CID; // Import CID
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo; // For provider info
 import 'package:merkledag/merkledag.dart' show MerkleCRDT, CRDTPayload, Broadcaster;
 import 'package:logging/logging.dart';

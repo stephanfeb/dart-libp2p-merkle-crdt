@@ -2,10 +2,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHTv2;
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' show IpfsDHTv2;
 import 'package:merkledag/merkledag.dart' show DAGSyncer, MerkleNode, CRDTPayload;
 import 'package:logging/logging.dart';
 

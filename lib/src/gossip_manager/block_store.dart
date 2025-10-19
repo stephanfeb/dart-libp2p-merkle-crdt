@@ -1,5 +1,5 @@
 // lib/src/gossip_manager/block_store.dart
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload;
 import 'package:logging/logging.dart';
 
@@ -215,7 +215,7 @@ class InMemoryBlockStore<P extends CRDTPayload<V>, V> implements BlockStore<P, V
       _emitChangeEvent(event);
     } else {
       // Create new entry
-      final newEntry = BlockStoreEntry<P, V>.active(node: node, collection: 'shopping-lists'); //FIXME !
+      final newEntry = BlockStoreEntry<P, V>.active(node: node, collection: null);
       _store[cidString] = newEntry;
       
       // Emit insert event

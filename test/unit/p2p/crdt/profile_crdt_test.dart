@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:test/test.dart';
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p_merkle_crdt/src/p2p/crdt/profile_crdt.dart';
 
 void main() {

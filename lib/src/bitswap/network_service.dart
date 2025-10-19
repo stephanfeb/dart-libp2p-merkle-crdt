@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dart_libp2p/dart_libp2p.dart' as libp2p;
 // Assuming 'varint' package for unsigned varint encoding/decoding
 // If not available, a helper function would be needed.
-import 'package:dart_cid/dart_cid.dart' as dart_cid; // Using varint from dart_libp2p
+import 'package:dcid/dcid.dart' as dart_cid; // Using varint from dart_libp2p
 // Placeholder for varint, actual package might differ or need implementation
 
 import './proto/bitswap_message.pb.dart' as pb;

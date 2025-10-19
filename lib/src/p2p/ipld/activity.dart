@@ -2,7 +2,7 @@ import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
 // Removed duplicate: import 'dart:convert' show jsonEncode;
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:pinenacl/api.dart' show SignatureBase; // For signature type
 import 'package:cbor/cbor.dart';
 

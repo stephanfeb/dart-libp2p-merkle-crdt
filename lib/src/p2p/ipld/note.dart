@@ -1,7 +1,7 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:cbor/cbor.dart';
 
 // const activityStreamsContext = 'https://www.w3.org/ns/activitystreams'; // Removed: Will use from activity.dart or direct default

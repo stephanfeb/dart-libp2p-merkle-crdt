@@ -1,9 +1,9 @@
 // lib/src/gossip_manager/dht_provider.dart
 import 'dart:async';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show IpfsDHT, IpfsDHTv2;
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' show IpfsDHT, IpfsDHTv2;
 import 'package:logging/logging.dart';
 
 final _logger = Logger('DHTProvider');

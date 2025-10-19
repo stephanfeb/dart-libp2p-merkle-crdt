@@ -4,7 +4,7 @@ import 'dart:convert' show jsonEncode, jsonDecode;
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dart_multihash/dart_multihash.dart';
 import 'package:merkledag/merkledag.dart' show CRDTPayload; // Assuming this path and interface
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 
 // Helper class for LWW entries
 class LwwEntry<T> {

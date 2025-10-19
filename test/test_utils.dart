@@ -15,9 +15,9 @@ import 'package:dart_libp2p/p2p/host/host.dart';
 import 'package:dart_libp2p/p2p/protocol/holepunch/holepunch_service.dart';
 import 'package:dart_libp2p/p2p/protocol/multistream/multistream.dart';
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart';
-import 'package:dart_libp2p_kat_dht/src/kbucket/keyspace/kad_id.dart';
-import 'package:dart_libp2p_kat_dht/src/pb/dht_message.dart' as pb;
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart';
+import 'package:dart_libp2p_kad_dht/src/kbucket/keyspace/kad_id.dart';
+import 'package:dart_libp2p_kad_dht/src/pb/dht_message.dart' as pb;
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 

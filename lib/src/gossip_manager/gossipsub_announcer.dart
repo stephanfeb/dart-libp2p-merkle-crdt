@@ -5,7 +5,7 @@ import 'dart:math' as math; // For math.min
 
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
-import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart' show PubSub, PubSubMessage, Subscription;
+import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
 import 'package:merkledag/merkledag.dart' show Broadcaster;
 import 'package:logging/logging.dart';
 

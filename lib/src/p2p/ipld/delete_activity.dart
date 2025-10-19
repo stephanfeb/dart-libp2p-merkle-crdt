@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart' show CID;
+import 'package:dcid/dcid.dart' show CID;
 import 'package:cbor/cbor.dart';
 
 import 'activity.dart'; // For activityStreamsContext and Activity interface

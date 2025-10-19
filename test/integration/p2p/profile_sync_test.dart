@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:dart_libp2p/dart_libp2p.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart' show BasicHost; // Corrected BasicHost import
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart' show DHTMode, DHTOptions, IpfsDHT, IpfsDHTv2; // For IpfsDHT, DHTOptions, DHTMode
-import 'package:dart_libp2p_kat_dht/src/providers/provider_store.dart' show MemoryProviderStore; // For MemoryProviderStore
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' show DHTMode, DHTOptions, IpfsDHT, IpfsDHTv2; // For IpfsDHT, DHTOptions, DHTMode
+import 'package:dart_libp2p_kad_dht/src/providers/provider_store.dart' show MemoryProviderStore; // For MemoryProviderStore
 // For NullResourceManager, ConnectionManager, BasicBus if not exported by dart_libp2p
 import 'package:dart_libp2p/core/network/rcmgr.dart' show NullResourceManager;
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_conn_mgr;
 import 'package:dart_libp2p/p2p/host/eventbus/basic.dart' as p2p_event_bus;
-import 'package:dart_udx/udx.dart' show UDX; // For UDX
+import 'package:dart_udx/dart_udx.dart' show UDX; // For UDX
 
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';

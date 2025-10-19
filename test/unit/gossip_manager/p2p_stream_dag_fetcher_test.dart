@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dart_cid/dart_cid.dart';
+import 'package:dcid/dcid.dart';
 import 'package:dart_libp2p/core/host/host.dart';
 import 'package:dart_libp2p/core/peer/peer_id.dart';
 import 'package:dart_libp2p/core/multiaddr.dart'; // Added import for Multiaddr
 import 'package:dart_libp2p/core/peer/addr_info.dart';
 import 'package:dart_libp2p/core/network/stream.dart';
 import 'package:dart_libp2p/core/network/context.dart';
-import 'package:dart_libp2p_kat_dht/dart_libp2p_kat_dht.dart';
+import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/block_store.dart';
 import 'package:dart_libp2p_merkle_crdt/src/gossip_manager/p2p_stream_dag_fetcher.dart';
 import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload;
@@ -171,7 +171,7 @@ void main() {
         when(mockAddrInfo.addrs).thenReturn([MultiAddr('/ip4/127.0.0.1/tcp/1234')]); 
 
         final providersController = StreamController<AddrInfo>();
-        when(mockDht.findProvidersAsync(testCid.toV1(), 20)).thenAnswer((_) => providersController.stream);
+        when(mockDht.findProvidersAsync(testCid.toV1(), 3)).thenAnswer((_) => providersController.stream);
         
         when(mockHost.connect(mockAddrInfo)).thenAnswer((_) async {});
         when(mockHost.newStream(mockRemotePeerId, [protocolId], any)).thenAnswer((_) async => mockP2PStream);
@@ -200,7 +200,7 @@ void main() {
         expect(result.payload.value, testNodePayload.value);
 
         verify(mockBlockStore.get(testCid)).called(1);
-        verify(mockDht.findProvidersAsync(testCid.toV1(), 20)).called(1);
+        verify(mockDht.findProvidersAsync(testCid.toV1(), 3)).called(1);
         verify(mockHost.connect(mockAddrInfo)).called(1);
         verify(mockHost.newStream(mockRemotePeerId, [protocolId], any)).called(1);
         verify(mockP2PStream.write(utf8.encode('REQUEST_NODE ${testCid.toString()}'))).called(1);
