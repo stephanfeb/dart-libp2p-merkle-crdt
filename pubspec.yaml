@@ -1,7 +1,8 @@
 name: dart_libp2p_merkle_crdt
-description: A starting point for Dart libraries or applications.
+description: "Replicates Merkle-CRDTs (the merkledag package) between dart_libp2p peers: heads announced over GossipSub, DAG blocks fetched and served over libp2p streams."
 version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+repository: https://github.com/stephanfeb/dart-libp2p-merkle-crdt
+issue_tracker: https://github.com/stephanfeb/dart-libp2p-merkle-crdt/issues
 
 environment:
   sdk: ^3.5.1
@@ -10,8 +11,7 @@ environment:
 dependencies:
   # path: ^1.8.0
   crypto: ^3.0.3
-  merkledag:
-    path: /Users/stephanfeb/IdeaProjects/agentic/merkledag
+  merkledag: ^1.0.1
 
   # Ranges rather than ^1.x: dart_libp2p 2.0.0 changes no API used here and
   # differs only on the UDX wire, and kad_dht/pubsub 1.3.0 accept it.

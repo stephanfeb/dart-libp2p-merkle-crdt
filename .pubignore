@@ -1,0 +1,16 @@
+# Replaces .gitignore for publishing, so it repeats those entries.
+.dart_tool/
+pubspec.lock
+.idea
+*.iml
+# Design and working notes stay on GitHub.
+/REFACTOR-ROADMAP.md
+/SYNC_FAILURE_ANALYSIS.md
+/activity-pubsub.md
+/bitcoin_payments_proposal.md
+/blockstore-developer-guide.md
+/blockstore-refactor.md
+/last-mile-implementation.md
+/performance-refactor.md
+/spv-crdt.md
+/terminology.md

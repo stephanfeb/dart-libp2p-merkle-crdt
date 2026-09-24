@@ -1,3 +1,4 @@
 ## 1.0.0
 
-- Initial version.
+- First release on pub.dev.
+- Depends on `merkledag` from pub.dev instead of a local path.
