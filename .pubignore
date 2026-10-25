@@ -13,3 +13,7 @@ pubspec.lock
 /performance-refactor.md
 /spv-crdt.md
 /terminology.md
+# Issue tracking and agent instructions.
+.beads/
+/AGENTS.md
+/CLAUDE.md
