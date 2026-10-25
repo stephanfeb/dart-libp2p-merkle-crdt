@@ -1,129 +1,144 @@
 // lib/src/gossip_manager/gossipsub_announcer.dart
 import 'dart:async';
-import 'dart:convert'; // For jsonEncode, jsonDecode, utf8
-import 'dart:math' as math; // For math.min
+import 'dart:typed_data';
 
+import 'package:dcid/dcid.dart' show CID;
 import 'package:dart_libp2p/core/host/host.dart' show Host;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
 import 'package:dart_libp2p_pubsub/dart_libp2p_pubsub.dart';
 import 'package:merkledag/merkledag.dart' show Broadcaster;
 import 'package:logging/logging.dart';
 
+import 'writer_authorizer.dart';
+
+final _logger = Logger('GossipSubAnnouncer');
+
+/// A head CID announced by [from], the authenticated author of the message.
+class HeadAnnouncement {
+  final CID cid;
+  final PeerId from;
+
+  const HeadAnnouncement(this.cid, this.from);
+
+  @override
+  String toString() => 'HeadAnnouncement($cid from ${from.toBase58()})';
+}
+
+/// Announces and receives head CIDs over a GossipSub topic.
+///
+/// Each message is the raw bytes of one CID. A topic validator accepts only
+/// well-formed CIDs authored by peers that [writers] allows, so other
+/// announcements are neither delivered nor relayed. GossipSub must sign
+/// messages (StrictSign, the default) for the author to be authenticated.
 class GossipSubAnnouncer implements Broadcaster {
-  static final _logger = Logger('GossipSubAnnouncer');
   final Host _host;
   final PubSub _pubsub;
-  final String _crdtInstanceTopic;
+  final String _topic;
+  final WriterAuthorizer _writers;
 
-  GossipSubAnnouncer(this._host, this._pubsub, String crdtInstanceId, {String? topic})
-      : _crdtInstanceTopic = topic ?? 'merkledag-crdt/heads/1.0.0/$crdtInstanceId' {
-    _logger.fine('GossipSubAnnouncer: Constructor started. CRDT Instance ID: $crdtInstanceId, Topic: $_crdtInstanceTopic');
-    _logger.info('GossipSubAnnouncer: Initialized for topic $_crdtInstanceTopic');
+  final StreamController<HeadAnnouncement> _announcements =
+      StreamController<HeadAnnouncement>.broadcast();
+  Subscription? _subscription;
+  StreamSubscription<dynamic>? _listener;
+  bool _validatorRegistered = false;
+  bool _closed = false;
+
+  GossipSubAnnouncer(
+    this._host,
+    this._pubsub,
+    String crdtInstanceId, {
+    String? topic,
+    required WriterAuthorizer writers,
+  })  : _topic = topic ?? 'merkle-crdt/heads/2.0.0/$crdtInstanceId',
+        _writers = writers;
+
+  /// The GossipSub topic heads are announced on.
+  String get topic => _topic;
+
+  /// Announcements from allowed writers other than this host. Joins the
+  /// topic on first use.
+  Stream<HeadAnnouncement> get announcements {
+    _join();
+    return _announcements.stream;
   }
 
+  void _join() {
+    if (_closed || _subscription != null) return;
+    try {
+      _pubsub.registerTopicValidator(_topic, _validate);
+      _validatorRegistered = true;
+    } on StateError catch (e) {
+      // Another component already validates this topic; _accept still
+      // filters what is delivered here.
+      _logger.warning('Topic $_topic already has a validator: $e');
+    }
+    final subscription = _pubsub.subscribe(_topic);
+    _subscription = subscription;
+    _listener = subscription.stream.listen((message) {
+      if (message is! PubSubMessage) return;
+      final announcement = _accept(message);
+      if (announcement != null && !_announcements.isClosed) {
+        _announcements.add(announcement);
+      }
+    });
+  }
+
+  ValidationResult _validate(PeerId receivedFrom, PubSubMessage message) {
+    if (message.from == _host.id) return ValidationResult.accept;
+    if (_parse(message.data) == null) return ValidationResult.reject;
+    // Valid but unwanted: drop it without penalising the peer that relayed it.
+    return _writers.isAllowed(message.from)
+        ? ValidationResult.accept
+        : ValidationResult.ignore;
+  }
+
+  HeadAnnouncement? _accept(PubSubMessage message) {
+    final from = message.from;
+    if (from == _host.id || !_writers.isAllowed(from)) return null;
+    final cid = _parse(message.data);
+    return cid == null ? null : HeadAnnouncement(cid, from);
+  }
+
+  static CID? _parse(List<int> data) {
+    if (data.isEmpty || data.length > 128) return null;
+    try {
+      return CID.fromBytes(Uint8List.fromList(data));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Announces [cidString] as a head. Failures are logged, not thrown: a
+  /// later announcement or [MerkleCrdtGossipManager.forceAnnounceCurrentHead]
+  /// recovers.
   @override
   Future<void> broadcast(String cidString) async {
-    _logger.info('broadcast: Broadcasting CID $cidString on topic $_crdtInstanceTopic');
-    final announcement = {
-      'cid': cidString,
-      'senderPeerId': _host.id.toBase58(),
-    };
-    final messageBytes = utf8.encode(jsonEncode(announcement));
-    _logger.finer('broadcast: Encoded message for CID $cidString: ${announcement.toString()} (Bytes length: ${messageBytes.length})');
-
+    if (_closed) return;
+    _join();
     try {
-      await _pubsub.publish(_crdtInstanceTopic, messageBytes);
-      _logger.fine('broadcast: Successfully broadcasted CID $cidString on topic $_crdtInstanceTopic');
-    } catch (e, s) {
-      _logger.severe('broadcast: Error broadcasting CID $cidString on topic $_crdtInstanceTopic: $e', e, s);
+      await _pubsub.publish(_topic, CID.fromString(cidString).toBytes());
+    } catch (e) {
+      _logger.warning('Announcing $cidString on $_topic failed: $e');
     }
   }
 
+  /// The CIDs of [announcements], as merkledag's [Broadcaster] expects.
   @override
-  Stream<String> subscribe() {
-    _logger.info('subscribe: Subscribing to Merkle-CRDT head announcements on topic: $_crdtInstanceTopic');
-    
-    late Subscription subscription;
-    try {
-      subscription = _pubsub.subscribe(_crdtInstanceTopic);
-      _logger.fine('subscribe: Successfully initiated subscription to topic $_crdtInstanceTopic.');
-    } catch (e, s) {
-      _logger.severe('subscribe: Error subscribing to topic $_crdtInstanceTopic: $e', e, s);
-      return Stream.error(e, s);
-    }
+  Stream<String> subscribe() => announcements.map((a) => a.cid.toString());
 
-    Stream<String> _processMessage(PubSubMessage message) async* {
-      final hostIdStr = _host.id.toBase58();
-      final messageFromStr = message.from.toBase58();
-      final hostIdShort = hostIdStr.substring(0, math.min(hostIdStr.length, 6));
-      final messageFromShort = messageFromStr.substring(0, math.min(messageFromStr.length, 6));
-
-      _logger.info('[GossipSubAnnouncer] Node $hostIdShort: _processMessage: Received PubSubMessage from $messageFromShort on topic $_crdtInstanceTopic (subscribed). Data length: ${message.data.length}. (isMine: ${message.from == _host.id})');
-      _logger.finer('_processMessage: Received PubSubMessage from $messageFromStr on topic $_crdtInstanceTopic. Data length: ${message.data.length}');
-      
-      if (message.from == _host.id) {
-        _logger.finer('_processMessage: Ignoring self-originated head announcement from ${message.from.toBase58()} on topic $_crdtInstanceTopic.');
-        return;
-      }
-
-      try {
-        final messageString = utf8.decode(message.data);
-        _logger.finer('_processMessage: Decoded message string: $messageString');
-        final announcement = jsonDecode(messageString) as Map<String, dynamic>;
-        _logger.finer('_processMessage: Parsed announcement: $announcement');
-        
-        final cidString = announcement['cid'] as String?;
-        final senderPeerIdString = announcement['senderPeerId'] as String?;
-
-        if (cidString == null) {
-          _logger.warning('_processMessage: Received announcement on $_crdtInstanceTopic without a CID from ${message.from.toBase58()}. Message data: $messageString');
-          return;
-        }
-
-        if (senderPeerIdString != null) {
-              _logger.fine('_processMessage: Received CID $cidString from sender $senderPeerIdString (via payload) on topic $_crdtInstanceTopic. Actual sender (message.from): ${message.from.toBase58()}');
-        } else {
-              _logger.fine('_processMessage: Received CID $cidString from sender ${message.from.toBase58()} on topic $_crdtInstanceTopic (payload did not contain senderPeerId)');
-        }
-        
-        yield cidString;
-        _logger.finer('_processMessage: Yielded CID $cidString for topic $_crdtInstanceTopic.');
-      } catch (e, s) {
-        _logger.warning('_processMessage: Error processing received message on topic $_crdtInstanceTopic from ${message.from.toBase58()}: $e. Message data (UTF-8 decoded, if possible): ${utf8.decode(message.data, allowMalformed: true)}', e, s);
-      }
-    }
-
-    return subscription.stream.transform(
-      StreamTransformer<dynamic, PubSubMessage>.fromHandlers(
-        handleData: (data, sink) {
-          if (data is PubSubMessage) {
-            _logger.finer('GossipSubAnnouncer: StreamTransformer received PubSubMessage for topic $_crdtInstanceTopic.');
-            sink.add(data);
-          } else {
-            _logger.warning('GossipSubAnnouncer: StreamTransformer received unexpected data type on PubSub stream for topic $_crdtInstanceTopic: ${data.runtimeType}. Expected PubSubMessage. Data: ${data.toString()}');
-          }
-        },
-        handleError: (error, stackTrace, sink) {
-          _logger.severe('GossipSubAnnouncer: StreamTransformer error in PubSub stream for topic $_crdtInstanceTopic: $error', error, stackTrace);
-          sink.addError(error, stackTrace);
-        },
-        handleDone: (sink) {
-          _logger.fine('GossipSubAnnouncer: StreamTransformer PubSub stream for topic $_crdtInstanceTopic is done.');
-          sink.close();
-        },
-      ),
-    ).asyncExpand<String>(_processMessage);
-  }
-
+  /// Leaves the topic and stops delivering announcements.
   Future<void> close() async {
-    _logger.info('close: Closing GossipSubAnnouncer for topic $_crdtInstanceTopic...');
-    try {
-      _logger.fine('close: Attempting to unsubscribe from topic $_crdtInstanceTopic.');
-      await _pubsub.unsubscribe(_crdtInstanceTopic); 
-      _logger.info('close: Successfully unsubscribed from topic $_crdtInstanceTopic.');
-    } catch (e, s) {
-      _logger.warning('close: Error unsubscribing from topic $_crdtInstanceTopic during close: $e', e, s);
+    if (_closed) return;
+    _closed = true;
+    if (_validatorRegistered) _pubsub.unregisterTopicValidator(_topic);
+    await _listener?.cancel();
+    if (_subscription != null) {
+      try {
+        await _pubsub.unsubscribe(_topic);
+      } catch (e) {
+        _logger.fine('Unsubscribing from $_topic failed: $e');
+      }
     }
-    _logger.info('close: GossipSubAnnouncer closed for topic $_crdtInstanceTopic.');
+    await _announcements.close();
   }
 }

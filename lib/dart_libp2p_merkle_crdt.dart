@@ -1,10 +1,10 @@
-/// Support for doing something awesome.
+/// Replicates Merkle-CRDTs (the merkledag package) between dart_libp2p peers.
 ///
-/// More dartdocs go here.
+/// Each replica announces its heads over GossipSub and serves DAG blocks over
+/// a libp2p stream protocol. Received blocks are verified against their CIDs,
+/// announcements are accepted only from authorised writers, and merging is
+/// bounded, so a misbehaving peer cannot forge content, write without
+/// permission, or stall the replica.
 library;
 
 export 'src/gossip_manager.dart';
-
-export 'src/bitswap/bitswap.dart';
-
-// TODO: Export any libraries intended for clients of this package.

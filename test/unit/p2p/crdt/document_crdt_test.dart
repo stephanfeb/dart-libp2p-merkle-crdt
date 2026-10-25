@@ -1,7 +1,6 @@
 import 'package:test/test.dart';
 
-import '../../../../lib/src/p2p/crdt/document_crdt.dart';
-import '../../../../lib/src/p2p/crdt/vector_clock.dart';
+import 'package:dart_libp2p_merkle_crdt/dart_libp2p_merkle_crdt.dart';
 
 void main() {
   group('VectorClock', () {
@@ -287,30 +286,18 @@ void main() {
         expect(merged.value['name'], isIn(['John', 'Jane']));
       });
 
-      test('should merge compatible values with merge strategy', () {
+      test('deprecated merge strategy resolves like last writer wins', () {
+        // ignore: deprecated_member_use_from_same_package
         final doc1 = DocumentCRDT.empty(strategy: ConflictResolutionStrategy.merge);
+        // ignore: deprecated_member_use_from_same_package
         final doc2 = DocumentCRDT.empty(strategy: ConflictResolutionStrategy.merge);
-        
+
         final doc1Updated = doc1.put('user', {'name': 'John'}, actorId: 'actor1');
         final doc2Updated = doc2.put('user', {'age': 30}, actorId: 'actor2');
-        
-        final merged = doc1Updated.merge(doc2Updated);
-        
-        // Should merge the maps
-        expect(merged.value['user'], equals({'name': 'John', 'age': 30}));
-      });
 
-      test('should merge lists by concatenating and deduplicating', () {
-        final doc1 = DocumentCRDT.empty(strategy: ConflictResolutionStrategy.merge);
-        final doc2 = DocumentCRDT.empty(strategy: ConflictResolutionStrategy.merge);
-        
-        final doc1Updated = doc1.put('tags', ['dart', 'flutter'], actorId: 'actor1');
-        final doc2Updated = doc2.put('tags', ['flutter', 'mobile'], actorId: 'actor2');
-        
         final merged = doc1Updated.merge(doc2Updated);
-        
-        final mergedTags = merged.value['tags'] as List;
-        expect(mergedTags.toSet(), equals({'dart', 'flutter', 'mobile'}));
+        expect(merged.value['user'], equals({'age': 30}));
+        expect(doc2Updated.merge(doc1Updated).toCanonicalBytes(), merged.toCanonicalBytes());
       });
 
       test('should use custom conflict resolver', () {

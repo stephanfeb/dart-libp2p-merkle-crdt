@@ -9,18 +9,46 @@ import 'package:dart_libp2p/core/network/stream.dart' show P2PStream;
 import 'package:dart_libp2p/core/network/context.dart' show Context;
 import 'package:dart_libp2p/core/peer/peer_id.dart' show PeerId;
 import 'package:dart_libp2p/core/peer/addr_info.dart' show AddrInfo;
-import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload;
+import 'package:merkledag/merkledag.dart' show MerkleNode, CRDTPayload, InvalidNodeException;
 import 'package:logging/logging.dart';
+
+import 'framing.dart';
 
 final _logger = Logger('P2PNodeProtocol');
 
-/// Handles low-level P2P protocol operations for node exchange.
-/// Manages stream lifecycle, message parsing, and connection handling.
+/// The default protocol ID for fetching blocks.
+const String defaultFetchProtocolId = '/merkle-crdt/fetch/2.0.0';
+
+/// The block-fetch protocol: one request and one response per stream.
+///
+/// Every message is a frame: an unsigned-varint length followed by that many
+/// bytes. The request is `0x01` followed by the CID's bytes. The response is
+/// `0x00` followed by the node's bytes (`MerkleNode.toBytes`), `0x01` if the
+/// block is not held, or `0x02` followed by a UTF-8 error message.
+///
+/// Both sides enforce [timeout] and size limits. A fetched node is returned
+/// only if its content hashes to the CID that was asked for.
 class P2PNodeProtocol<P extends CRDTPayload<V>, V> {
+  static const int _request = 0x01;
+  static const int _found = 0x00;
+  static const int _notFound = 0x01;
+  static const int _error = 0x02;
+
+  /// Requests carry one CID; anything longer is not a valid request.
+  static const int _maxRequestSize = 256;
+
   final Host _host;
   final String _protocolId;
   final P Function(Uint8List payloadBytes) _payloadFactory;
   final Future<MerkleNode<P>?> Function(CID cid) _localNodeGetter;
+
+  /// Largest serialized node this side sends or accepts.
+  final int maxBlockSize;
+
+  /// Time limit for a whole fetch, and for each read or write when serving.
+  final Duration timeout;
+
+  bool _closed = false;
 
   /// Public getter for the host
   Host get host => _host;
@@ -32,210 +60,118 @@ class P2PNodeProtocol<P extends CRDTPayload<V>, V> {
     this._host,
     this._protocolId,
     this._payloadFactory,
-    this._localNodeGetter,
-  ) {
-    _logger.info('P2PNodeProtocol: Initializing for protocol $_protocolId');
+    this._localNodeGetter, {
+    this.maxBlockSize = 4 * 1024 * 1024,
+    this.timeout = const Duration(seconds: 10),
+  }) {
     _host.setStreamHandler(_protocolId, _handleIncomingStream);
-    _logger.fine('P2PNodeProtocol: Stream handler set for protocol $_protocolId');
   }
 
-  /// Handles incoming streams for node requests
   Future<void> _handleIncomingStream(P2PStream stream, PeerId remotePeer) async {
-    final remotePeerStr = remotePeer.toBase58().substring(0, 10);
-    _logger.info('_handleIncomingStream: Received stream from $remotePeerStr (Stream ID: ${stream.id()})');
-    
     try {
-      final requestBytes = await stream.read();
-      if (requestBytes.isEmpty) {
-        _logger.warning('_handleIncomingStream: Empty request from $remotePeerStr');
-        return;
-      }
-
-      final message = utf8.decode(requestBytes);
-      _logger.fine('_handleIncomingStream: Message from $remotePeerStr: "$message"');
-
-      if (message.startsWith('REQUEST_NODE ')) {
-        await _handleNodeRequest(stream, message, remotePeerStr);
-      } else {
-        _logger.warning('_handleIncomingStream: Unknown message type from $remotePeerStr: "$message"');
-        await _sendErrorResponse(stream, 'Unknown message type: $message');
-      }
-    } catch (e, s) {
-      _logger.severe('_handleIncomingStream: Error handling stream from $remotePeerStr: $e', e, s);
-      if (!stream.isClosed) {
-        await stream.reset();
-      }
-    } finally {
-      _logger.fine('_handleIncomingStream: Closing stream from $remotePeerStr');
-      if (!stream.isClosed) {
-        await stream.close();
-      }
-    }
-  }
-
-  /// Handles a node request message
-  Future<void> _handleNodeRequest(P2PStream stream, String message, String remotePeerStr) async {
-    final cidString = message.substring('REQUEST_NODE '.length);
-    _logger.info('_handleNodeRequest: Request for CID $cidString from $remotePeerStr');
-
-    CID cid;
-    try {
-      cid = CID.fromString(cidString);
+      final request = await FrameReader(stream)
+          .readFrame(maxLength: _maxRequestSize)
+          .timeout(timeout);
+      final response = await _respondTo(request);
+      await stream.write(encodeFrame(response)).timeout(timeout);
+      await stream.close();
     } catch (e) {
-      _logger.warning('_handleNodeRequest: Invalid CID "$cidString" from $remotePeerStr: $e');
-      await _sendErrorResponse(stream, 'Invalid CID format: $cidString');
-      return;
-    }
-
-    final node = await _localNodeGetter(cid);
-    if (node != null) {
-      await _sendNodeResponse(stream, node, remotePeerStr);
-    } else {
-      await _sendNotFoundResponse(stream, cidString, remotePeerStr);
+      _logger.fine('Serving ${_short(remotePeer)} failed: $e');
+      try {
+        await stream.reset();
+      } catch (_) {}
     }
   }
 
-  /// Sends a node data response
-  Future<void> _sendNodeResponse(P2PStream stream, MerkleNode<P> node, String remotePeerStr) async {
-    _logger.info('_sendNodeResponse: Serving node ${node.cid} to $remotePeerStr');
-    
-    // Use standard merkledag serialization to preserve CID consistency
-    final nodeBytes = node.toBytes();
-    final response = 'NODE_DATA ${node.cid} ${base64.encode(nodeBytes)}';
-    
-    _logger.finer('_sendNodeResponse: Response length: ${response.length}, serialized to ${nodeBytes.length} bytes');
-    await stream.write(utf8.encode(response));
-  }
-
-  /// Sends a node not found response
-  Future<void> _sendNotFoundResponse(P2PStream stream, String cidString, String remotePeerStr) async {
-    _logger.info('_sendNotFoundResponse: Node $cidString not found for $remotePeerStr');
-    final response = 'NODE_NOT_FOUND $cidString';
-    await stream.write(utf8.encode(response));
-  }
-
-  /// Sends an error response
-  Future<void> _sendErrorResponse(P2PStream stream, String error) async {
-    final response = 'ERROR $error';
-    await stream.write(utf8.encode(response));
-  }
-
-  /// Fetches a node from a specific provider
-  Future<MerkleNode<P>?> fetchNodeFromProvider(CID cid, AddrInfo providerInfo) async {
-    final providerPeerId = providerInfo.id;
-    final providerPeerStr = providerPeerId.toBase58().substring(0, 10);
-
-    if (providerInfo.addrs.isEmpty) {
-      _logger.fine('fetchNodeFromProvider: Provider $providerPeerStr has no addresses');
-      return null;
+  Future<Uint8List> _respondTo(Uint8List request) async {
+    if (request.isEmpty || request[0] != _request) {
+      return _errorResponse('Unknown request');
     }
-
-    if (providerPeerId == _host.id) {
-      _logger.finer('fetchNodeFromProvider: Skipping self as provider');
-      return null;
-    }
-
-    _logger.info('fetchNodeFromProvider: Fetching $cid from $providerPeerStr');
-
-    P2PStream? clientStream;
+    final CID cid;
     try {
-      // Connect to provider
-      await _host.connect(providerInfo);
-      _logger.fine('fetchNodeFromProvider: Connected to $providerPeerStr');
+      cid = CID.fromBytes(Uint8List.sublistView(request, 1));
+    } catch (_) {
+      return _errorResponse('Invalid CID');
+    }
+    final node = _closed ? null : await _localNodeGetter(cid);
+    if (node == null) return Uint8List.fromList([_notFound]);
+    final nodeBytes = node.toBytes();
+    if (nodeBytes.length > maxBlockSize) return _errorResponse('Block too large');
+    return Uint8List(nodeBytes.length + 1)
+      ..[0] = _found
+      ..setRange(1, nodeBytes.length + 1, nodeBytes);
+  }
 
-      // Open stream
-      clientStream = await _host.newStream(providerPeerId, [_protocolId], Context());
-      _logger.info('fetchNodeFromProvider: Opened stream ${clientStream.id()} to $providerPeerStr');
+  static Uint8List _errorResponse(String message) =>
+      Uint8List.fromList([_error, ...utf8.encode(message)]);
 
-      // Send request
-      await clientStream.write(utf8.encode('REQUEST_NODE ${cid.toString()}'));
-      _logger.fine('fetchNodeFromProvider: Sent REQUEST_NODE to $providerPeerStr');
+  /// Fetches [cid] from [peer] over an existing or newly dialled connection.
+  ///
+  /// Returns the verified node, or null if the peer does not have it, cannot
+  /// be reached, times out, or serves content that does not match [cid].
+  Future<MerkleNode<P>?> fetch(CID cid, PeerId peer) async {
+    if (_closed || peer == _host.id) return null;
+    P2PStream? stream;
+    try {
+      return await () async {
+        stream = await _host.newStream(peer, [_protocolId], Context());
+        await stream!.write(encodeFrame(Uint8List.fromList([_request, ...cid.toBytes()])));
+        final response = await FrameReader(stream!).readFrame(maxLength: maxBlockSize + 1);
+        if (response.isEmpty) throw const FrameException('Empty response');
+        switch (response[0]) {
+          case _found:
+            return MerkleNode.fromBytes<P, V>(
+                Uint8List.sublistView(response, 1), _payloadFactory,
+                expectedCid: cid);
+          case _notFound:
+            return null;
+          case _error:
+            _logger.fine('${_short(peer)} could not serve $cid: '
+                '${utf8.decode(response.sublist(1), allowMalformed: true)}');
+            return null;
+          default:
+            throw FrameException('Unknown response type ${response[0]}');
+        }
+      }()
+          .timeout(timeout);
+    } on InvalidNodeException catch (e) {
+      _logger.warning('${_short(peer)} served an invalid block for $cid: ${e.message}');
+      return null;
+    } catch (e) {
+      _logger.fine('Fetching $cid from ${_short(peer)} failed: $e');
+      return null;
+    } finally {
+      final s = stream;
+      if (s != null && !s.isClosed) {
+        unawaited(s.close().catchError((_) {}));
+      }
+    }
+  }
 
-      // Read response with timeout
-      final responseBytes = await clientStream.read().timeout(
-        Duration(seconds: 10),
-        onTimeout: () {
-          _logger.warning('fetchNodeFromProvider: Timeout reading from $providerPeerStr');
-          throw TimeoutException('Timeout reading response from $providerPeerStr');
-        },
-      );
-
-      if (responseBytes.isEmpty) {
-        _logger.warning('fetchNodeFromProvider: Empty response from $providerPeerStr');
+  /// Fetches [cid] from a provider found through the DHT, dialling its
+  /// addresses first if it has any.
+  Future<MerkleNode<P>?> fetchNodeFromProvider(CID cid, AddrInfo providerInfo) async {
+    if (providerInfo.id == _host.id) return null;
+    if (providerInfo.addrs.isNotEmpty) {
+      try {
+        await _host.connect(providerInfo).timeout(timeout);
+      } catch (e) {
+        _logger.fine('Could not connect to provider ${_short(providerInfo.id)}: $e');
         return null;
       }
-
-      return _parseNodeResponse(responseBytes, cid, providerPeerStr);
-    } catch (e, s) {
-      _logger.warning('fetchNodeFromProvider: Failed to fetch from $providerPeerStr: $e', e, s);
-      return null;
-    } finally {
-      if (clientStream != null && !clientStream.isClosed) {
-        _logger.finer('fetchNodeFromProvider: Closing stream to $providerPeerStr');
-        await clientStream.close().catchError((err) => 
-          _logger.warning('fetchNodeFromProvider: Error closing stream: $err'));
-      }
     }
+    return fetch(cid, providerInfo.id);
   }
 
-  /// Parses a node response and validates content
-  MerkleNode<P>? _parseNodeResponse(Uint8List responseBytes, CID requestedCid, String providerPeerStr) {
-    final response = utf8.decode(responseBytes);
-    _logger.fine('_parseNodeResponse: Response from $providerPeerStr: "$response"');
-
-    if (response.startsWith('NODE_DATA ')) {
-      return _parseNodeData(response, requestedCid, providerPeerStr);
-    } else if (response.startsWith('NODE_NOT_FOUND ')) {
-      _logger.info('_parseNodeResponse: Node not found at $providerPeerStr');
-      return null;
-    } else if (response.startsWith('ERROR ')) {
-      _logger.warning('_parseNodeResponse: Error from $providerPeerStr: $response');
-      return null;
-    } else {
-      _logger.warning('_parseNodeResponse: Unknown response from $providerPeerStr: "$response"');
-      return null;
-    }
-  }
-
-  /// Parses NODE_DATA response and validates content integrity
-  MerkleNode<P>? _parseNodeData(String response, CID requestedCid, String providerPeerStr) {
-    final parts = response.split(' ');
-    if (parts.length < 3) {
-      _logger.warning('_parseNodeData: Malformed NODE_DATA from $providerPeerStr: "$response"');
-      return null;
-    }
-
-    final receivedCidString = parts[1];
-    final nodeDataEnc = parts[2];
-
-    try {
-      final nodeBytes = base64.decode(nodeDataEnc);
-      // Use standard merkledag deserialization to preserve CID consistency
-      final fetchedNode = MerkleNode.fromBytes(nodeBytes, _payloadFactory);
-
-      // Content verification - critical for tamper detection
-      if (fetchedNode.cid.toString() == requestedCid.toString()) {
-        _logger.info('_parseNodeData: Successfully verified node $requestedCid from $providerPeerStr');
-        return fetchedNode;
-      } else {
-        // Proper exception for tamper detection as recommended in Phase 1
-        final errorMsg = 'Content verification failed: Fetched node CID ${fetchedNode.cid} '
-            'does not match requested CID $requestedCid from $providerPeerStr. '
-            'This indicates potential data corruption or tampering.';
-        _logger.severe(errorMsg);
-        throw StateError(errorMsg);
-      }
-    } catch (e, s) {
-      _logger.warning('_parseNodeData: Failed to parse node data from $providerPeerStr: $e', e, s);
-      return null;
-    }
-  }
-
-
-  /// Closes the protocol handler
+  /// Stops serving blocks and removes the stream handler.
   Future<void> close() async {
-    _logger.info('close: Closing P2PNodeProtocol for $_protocolId');
-    // Stream handler cleanup is typically handled by host.close()
-    _logger.info('P2PNodeProtocol closed for $_protocolId');
+    if (_closed) return;
+    _closed = true;
+    _host.removeStreamHandler(_protocolId);
+  }
+
+  static String _short(PeerId peer) {
+    final s = peer.toBase58();
+    return s.length > 10 ? s.substring(s.length - 6) : s;
   }
 }

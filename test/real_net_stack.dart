@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
-import 'package:dart_libp2p/core/host/host.dart';
 import 'package:dart_libp2p/core/peer/pb/peer_record.pb.dart' as pb;
 import 'package:dart_libp2p/core/peer/record.dart';
 import 'package:dart_libp2p/core/record/record_registry.dart';
-import 'package:dart_libp2p/p2p/transport/tcp_transport.dart';
 import 'package:logging/logging.dart';
 import 'package:dart_libp2p/core/crypto/ed25519.dart' as crypto_ed25519;
 import 'package:dart_libp2p/core/crypto/keys.dart';
@@ -24,13 +21,10 @@ import 'package:dart_libp2p/p2p/transport/udx_transport.dart';
 import 'package:dart_udx/dart_udx.dart';
 import 'package:dart_libp2p/p2p/transport/connection_manager.dart' as p2p_transport;
 import 'package:dart_libp2p/core/network/rcmgr.dart'; // Interface - Corrected Path
-import 'package:dart_libp2p_kad_dht/dart_libp2p_kad_dht.dart' show IpfsDHT; // Added for IpfsDHT
 import 'package:dart_libp2p/p2p/network/swarm/swarm.dart';
 import 'package:dart_libp2p/p2p/host/basic/basic_host.dart';
 import 'package:dart_libp2p/p2p/host/peerstore/pstoremem.dart';
 import 'package:dart_libp2p/core/event/bus.dart' as core_event_bus; // Interface
-import 'package:dart_libp2p/core/peerstore.dart'; // For AddressTTL, Peerstore interface
-import 'package:dart_libp2p/p2p/protocol/identify/identify.dart'; // For IdentifyService
 
 // Logger for this utility file
 final _log = Logger('RealNetStack');
@@ -76,6 +70,8 @@ Future<Libp2pNode> createLibp2pNode({
   String? userAgentPrefix,
 }) async {
   final kp = keyPair ?? await crypto_ed25519.generateEd25519KeyPair();
+  // Returns a Future in older dart_libp2p releases.
+  // ignore: await_only_futures
   final peerId = await core_peer_id_lib.PeerId.fromPublicKey(kp.publicKey);
   _log.fine('Creating node for PeerId: ${peerId.toBase58()}');
 
@@ -192,6 +188,8 @@ Future<Libp2pNode> createLibp2pNode({
   // and tests requiring explicit DHT instances will create them.
   
   return (
+    // Needed with older dart_libp2p releases, where create returns Host.
+    // ignore: unnecessary_cast
     host: host as BasicHost,
     peerId: peerId,
     listenAddrs: actualListenAddrs,

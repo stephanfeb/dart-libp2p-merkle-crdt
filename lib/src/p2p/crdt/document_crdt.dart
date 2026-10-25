@@ -1,7 +1,8 @@
-import 'dart:convert' show jsonEncode, jsonDecode;
+import 'dart:convert' show jsonDecode, utf8;
 import 'dart:typed_data';
 
 import 'package:merkledag/merkledag.dart' show CRDTPayload;
+import 'canonical_json.dart';
 import 'vector_clock.dart';
 
 /// Represents a single entry in a DocumentCRDT.
@@ -183,10 +184,18 @@ enum ConflictResolutionStrategy {
   /// First Writer Wins - choose the entry with the earliest timestamp.
   firstWriterWins,
   
-  /// Merge values if possible (for maps and lists).
+  /// Formerly merged concurrent map and list values. That cannot converge
+  /// without per-element metadata (merge order changed the result), so it
+  /// now resolves conflicts exactly like [lastWriterWins].
+  @Deprecated('Behaves as lastWriterWins; model nested fields as separate keys')
   merge,
   
   /// Use a custom conflict resolver function.
+  ///
+  /// The resolver is not serialized: decode replicated documents with a
+  /// payload factory that re-attaches it with [DocumentCRDT.withConflictResolver].
+  /// For replicas to converge it must be commutative, associative and
+  /// idempotent, and must not depend on which argument is local.
   custom,
 }
 
@@ -278,8 +287,7 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
 
   /// Puts a key-value pair into the document.
   /// Returns a new DocumentCRDT with the updated entry.
-  DocumentCRDT put(String key, dynamic value, {String? actorId}) {
-    actorId ??= 'default';
+  DocumentCRDT put(String key, dynamic value, {required String actorId}) {
     final newClock = _clock.increment(actorId);
     final newEntries = Map<String, DocumentEntry>.from(_entries);
     
@@ -295,8 +303,7 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
 
   /// Deletes a key from the document by creating a tombstone.
   /// Returns a new DocumentCRDT with the deleted entry.
-  DocumentCRDT delete(String key, {String? actorId}) {
-    actorId ??= 'default';
+  DocumentCRDT delete(String key, {required String actorId}) {
     final newClock = _clock.increment(actorId);
     final newEntries = Map<String, DocumentEntry>.from(_entries);
     
@@ -312,8 +319,7 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
 
   /// Applies multiple updates to the document.
   /// Returns a new DocumentCRDT with all updates applied.
-  DocumentCRDT patch(Map<String, dynamic> updates, {String? actorId}) {
-    actorId ??= 'default';
+  DocumentCRDT patch(Map<String, dynamic> updates, {required String actorId}) {
     var result = this;
     
     for (final entry in updates.entries) {
@@ -325,8 +331,7 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
 
   /// Performs a deep merge of updates into the document.
   /// For nested maps, merges recursively. For other types, replaces the value.
-  DocumentCRDT deepMerge(Map<String, dynamic> updates, {String? actorId}) {
-    actorId ??= 'default';
+  DocumentCRDT deepMerge(Map<String, dynamic> updates, {required String actorId}) {
     var result = this;
     
     for (final entry in updates.entries) {
@@ -392,122 +397,61 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
     return result;
   }
 
+  /// Merges [other] into this document. The result does not depend on the
+  /// order or grouping of merges: for each key the entry with the highest
+  /// rank wins (lowest for [ConflictResolutionStrategy.firstWriterWins]),
+  /// where the rank orders entries by the sum of their vector clock, which
+  /// respects causality, then by actor ID, tombstone over value, and finally
+  /// the value's canonical JSON. If the two documents use different
+  /// strategies, the one listed first in [ConflictResolutionStrategy] is used.
   @override
   DocumentCRDT merge(covariant DocumentCRDT other) {
+    final useOther = other._strategy.index < _strategy.index;
+    final strategy = useOther ? other._strategy : _strategy;
+    final resolver = useOther ? other._customResolver : _customResolver;
+
     final mergedEntries = Map<String, DocumentEntry>.from(_entries);
-    final mergedClock = _clock.merge(other._clock);
-    
     for (final entry in other._entries.entries) {
-      final key = entry.key;
-      final otherEntry = entry.value;
-      final localEntry = mergedEntries[key];
-      
-      if (localEntry == null) {
-        // No local entry, take the remote one
-        mergedEntries[key] = otherEntry;
-      } else {
-        // Resolve conflict between local and remote entries
-        mergedEntries[key] = _resolveConflict(key, localEntry, otherEntry);
-      }
+      final localEntry = mergedEntries[entry.key];
+      mergedEntries[entry.key] = localEntry == null
+          ? entry.value
+          : _resolve(strategy, resolver, entry.key, localEntry, entry.value);
     }
-    
+
     return DocumentCRDT._(
       entries: mergedEntries,
-      clock: mergedClock,
-      strategy: _strategy,
-      customResolver: _customResolver,
+      clock: _clock.merge(other._clock),
+      strategy: strategy,
+      customResolver: resolver,
     );
   }
 
-  /// Resolves conflicts between two document entries based on the configured strategy.
-  DocumentEntry _resolveConflict(
+  static DocumentEntry _resolve(
+    ConflictResolutionStrategy strategy,
+    ConflictResolver? resolver,
     String key,
     DocumentEntry local,
     DocumentEntry remote,
   ) {
-    switch (_strategy) {
-      case ConflictResolutionStrategy.lastWriterWins:
-        return _lastWriterWins(local, remote);
-      
-      case ConflictResolutionStrategy.firstWriterWins:
-        return _firstWriterWins(local, remote);
-      
-      case ConflictResolutionStrategy.merge:
-        return _mergeValues(key, local, remote);
-      
-      case ConflictResolutionStrategy.custom:
-        if (_customResolver != null) {
-          return _customResolver!(key, local, remote);
-        }
-        // Fallback to LWW if no custom resolver
-        return _lastWriterWins(local, remote);
+    if (strategy == ConflictResolutionStrategy.custom && resolver != null) {
+      return resolver(key, local, remote);
     }
+    final order = compareEntries(local, remote);
+    if (strategy == ConflictResolutionStrategy.firstWriterWins) {
+      return order <= 0 ? local : remote;
+    }
+    return order >= 0 ? local : remote;
   }
 
-  /// Last Writer Wins conflict resolution.
-  DocumentEntry _lastWriterWins(DocumentEntry local, DocumentEntry remote) {
-    final relation = local.timestamp.compareTo(remote.timestamp);
-    
-    switch (relation) {
-      case CausalRelation.before:
-        return remote; // Remote is newer
-      case CausalRelation.after:
-        return local; // Local is newer
-      case CausalRelation.concurrent:
-      case CausalRelation.equal:
-        // Tie-breaking: prefer the entry with lexicographically larger actor ID
-        return local.actorId.compareTo(remote.actorId) >= 0 ? local : remote;
-    }
-  }
-
-  /// First Writer Wins conflict resolution.
-  DocumentEntry _firstWriterWins(DocumentEntry local, DocumentEntry remote) {
-    final relation = local.timestamp.compareTo(remote.timestamp);
-    
-    switch (relation) {
-      case CausalRelation.before:
-        return local; // Local is older
-      case CausalRelation.after:
-        return remote; // Remote is older
-      case CausalRelation.concurrent:
-      case CausalRelation.equal:
-        // Tie-breaking: prefer the entry with lexicographically smaller actor ID
-        return local.actorId.compareTo(remote.actorId) <= 0 ? local : remote;
-    }
-  }
-
-  /// Merge conflict resolution - attempts to merge values if possible.
-  DocumentEntry _mergeValues(String key, DocumentEntry local, DocumentEntry remote) {
-    // If either is deleted, use LWW
-    if (local.isDeleted || remote.isDeleted) {
-      return _lastWriterWins(local, remote);
-    }
-    
-    // If both are maps, try to merge them
-    if (local.value is Map<String, dynamic> && 
-        remote.value is Map<String, dynamic>) {
-      final mergedValue = _deepMergeMap(
-        local.value as Map<String, dynamic>,
-        remote.value as Map<String, dynamic>,
-      );
-      
-      // Use the later timestamp for the merged entry
-      final laterEntry = _lastWriterWins(local, remote);
-      return laterEntry.copyWith(value: mergedValue);
-    }
-    
-    // If both are lists, concatenate them (removing duplicates)
-    if (local.value is List && remote.value is List) {
-      final localList = local.value as List;
-      final remoteList = remote.value as List;
-      final mergedList = [...localList, ...remoteList].toSet().toList();
-      
-      final laterEntry = _lastWriterWins(local, remote);
-      return laterEntry.copyWith(value: mergedList);
-    }
-    
-    // For other types, fall back to LWW
-    return _lastWriterWins(local, remote);
+  /// The total order used to resolve conflicts. Extends the causal order: an
+  /// entry written after seeing another always ranks higher.
+  static int compareEntries(DocumentEntry a, DocumentEntry b) {
+    var c = a.timestamp.sum.compareTo(b.timestamp.sum);
+    if (c != 0) return c;
+    c = a.actorId.compareTo(b.actorId);
+    if (c != 0) return c;
+    if (a.isDeleted != b.isDeleted) return a.isDeleted ? 1 : -1;
+    return canonicalJsonEncode(a.toJson()).compareTo(canonicalJsonEncode(b.toJson()));
   }
 
   @override
@@ -524,12 +468,12 @@ class DocumentCRDT implements CRDTPayload<Map<String, dynamic>> {
       'strategy': _strategy.name,
     };
     
-    return Uint8List.fromList(jsonEncode(jsonMap).codeUnits);
+    return canonicalJsonBytes(jsonMap);
   }
 
   /// Deserializes a DocumentCRDT from bytes.
   factory DocumentCRDT.fromBytes(Uint8List bytes) {
-    final json = jsonDecode(String.fromCharCodes(bytes)) as Map<String, dynamic>;
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     return DocumentCRDT.fromJson(json);
   }
 

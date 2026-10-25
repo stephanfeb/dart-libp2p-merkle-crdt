@@ -1,5 +1,7 @@
-import 'dart:convert' show jsonEncode, jsonDecode;
+import 'dart:convert' show jsonDecode, utf8;
 import 'dart:typed_data';
+
+import 'canonical_json.dart';
 
 /// Vector clock implementation for tracking causality in distributed systems.
 /// Each actor maintains a logical timestamp that increments with each operation.
@@ -140,21 +142,18 @@ class VectorClock {
   }
 
   /// Serializes the vector clock to bytes for canonical representation.
-  Uint8List toBytes() {
-    // Sort by actor ID for canonical representation
-    final sortedEntries = _clocks.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    
-    final sortedClocks = Map<String, int>.fromEntries(sortedEntries);
-    final json = {'clocks': sortedClocks};
-    return Uint8List.fromList(jsonEncode(json).codeUnits);
-  }
+  Uint8List toBytes() => canonicalJsonBytes(toJson());
 
   /// Deserializes a vector clock from bytes.
   factory VectorClock.fromBytes(Uint8List bytes) {
-    final json = jsonDecode(String.fromCharCodes(bytes)) as Map<String, dynamic>;
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     return VectorClock.fromJson(json);
   }
+
+  /// The sum of all actors' counters. It grows strictly along every causal
+  /// chain, so ordering by it (then by a tiebreak) extends the causal order
+  /// to a total order.
+  int get sum => _clocks.values.fold(0, (a, b) => a + b);
 
   /// Returns all actor IDs present in this vector clock.
   Set<String> get actors => _clocks.keys.toSet();

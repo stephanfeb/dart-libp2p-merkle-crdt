@@ -8,7 +8,6 @@ pubspec.lock
 /SYNC_FAILURE_ANALYSIS.md
 /activity-pubsub.md
 /bitcoin_payments_proposal.md
-/blockstore-developer-guide.md
 /blockstore-refactor.md
 /last-mile-implementation.md
 /performance-refactor.md
