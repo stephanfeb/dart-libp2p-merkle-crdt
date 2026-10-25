@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "dart_libp2p_merkle_crdt",
+  "project_id": "2051d119-5d09-4a9e-822a-b81e0ee8a74b"
+}
